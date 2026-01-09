@@ -1,0 +1,40 @@
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: gateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*.plantsuite.local"
+      tls:
+        httpsRedirect: true # sends 301 redirect for http requests
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - "*.plantsuite.local"
+      tls:
+        mode: SIMPLE
+        credentialName: plantsuite-wildcard-cert
+    - port:
+        number: 1883
+        name: mqtt
+        protocol: TCP
+      hosts:
+        - "mqtt.plantsuite.local"
+    - port:
+        number: 8883
+        name: mqtts
+        protocol: TLS
+      hosts:
+        - "mqtt.plantsuite.local"
+      tls:
+        mode: SIMPLE
+        credentialName: plantsuite-mqtt-cert

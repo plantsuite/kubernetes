@@ -1,0 +1,20 @@
+namespace: mongodb
+
+resources:
+  - bundle-1.21.1.yaml
+
+patches:
+  - target:
+      kind: Deployment
+      name: percona-server-mongodb-operator
+    patch: |-
+      # Container: percona-server-mongodb-operator (index 0)
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 100m
+            memory: 256Mi

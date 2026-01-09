@@ -1,0 +1,23 @@
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: account-plantsuite-local
+spec:
+  hosts:
+    - account.plantsuite.local
+  location: MESH_INTERNAL
+  ports:
+    - number: 80
+      name: http
+      protocol: HTTP
+    - number: 443
+      name: https
+      protocol: HTTPS
+  resolution: DNS
+  endpoints:
+    - address: gateway.istio-ingress.svc.cluster.local
+      ports:
+        http: 80
+        https: 443
+  exportTo:
+    - "*"

@@ -1,0 +1,4 @@
+namespace: rabbitmq
+
+resources:
+  - ../../../base/rabbitmq

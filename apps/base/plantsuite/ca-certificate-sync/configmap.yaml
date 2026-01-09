@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sync-ca-certificate-script
+data:
+  sync.sh: |
+    set -e
+    
+    echo "$(date): Iniciando sincronização de certificado..."
+    
+    # Verificar acesso ao Secret de origem
+    if ! kubectl get secret plantsuite-wildcard-cert -n istio-ingress &>/dev/null; then
+      echo "✗ Erro: Não conseguiu acessar Secret de origem"
+      exit 1
+    fi
+    echo "✓ Secret de origem acessível"
+    
+    # Extrai certificado decodificado de origem
+    NEW_CERT=$(kubectl get secret plantsuite-wildcard-cert \
+      -n istio-ingress \
+      -o jsonpath='{.data.tls\.crt}' | base64 -d 2>/dev/null)
+    
+    if [ -z "$NEW_CERT" ]; then
+      echo "✗ Erro: Não conseguiu extrair certificado de origem"
+      exit 1
+    fi
+    
+    # Calcula hash do novo certificado
+    NEW_HASH=$(echo -n "$NEW_CERT" | sha256sum | awk '{print $1}')
+    
+    # Extrai certificado atual decodificado
+    CURRENT_CERT=$(kubectl get secret ca-certificates \
+      -o jsonpath='{.data.ca\.crt}' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+    
+    # Compara hashes dos certificados
+    if [ -n "$CURRENT_CERT" ]; then
+      CURRENT_HASH=$(echo -n "$CURRENT_CERT" | sha256sum | awk '{print $1}')
+      if [ "$NEW_HASH" = "$CURRENT_HASH" ]; then
+        echo "✓ Certificado idêntico ao atual. Nada a fazer."
+        exit 0
+      fi
+    fi
+    
+    echo "⚠ Certificado mudou! Sincronizando..."
+    
+    # Cria/atualiza o Secret com o certificado decodificado
+    echo "Atualizando Secret ca-certificates..."
+    kubectl create secret generic ca-certificates \
+      --from-literal=ca.crt="$NEW_CERT" \
+      --dry-run=client -o yaml | kubectl apply -f - &>/dev/null
+    
+    if [ $? -ne 0 ]; then
+      echo "✗ Erro ao atualizar Secret"
+      exit 1
+    fi
+    echo "✓ Secret atualizado com sucesso"
+    
+    echo "Iniciando rollout dos Deployments..."
+    kubectl get deployments -n plantsuite -o name 2>/dev/null | while read deploy; do
+      # Pula portal (frontend, não precisa de certificado)
+      if [[ "$deploy" == *"/portal" ]]; then
+        continue
+      fi
+      echo "  Reiniciando $deploy..."
+      kubectl rollout restart $deploy -n plantsuite 2>/dev/null || true
+      kubectl rollout status $deploy -n plantsuite --timeout=5m 2>/dev/null || true
+    done
+    echo "✓ Deployments reiniciados"
+    
+    echo "Iniciando rollout dos StatefulSets..."
+    kubectl get statefulsets -n plantsuite -o name 2>/dev/null | while read sts; do
+      echo "  Reiniciando $sts..."
+      kubectl rollout restart $sts -n plantsuite 2>/dev/null || true
+      kubectl rollout status $sts -n plantsuite --timeout=5m 2>/dev/null || true
+    done
+    echo "✓ StatefulSets reiniciados"
+    
+    echo "$(date): ✓ Sincronização concluída com sucesso!"

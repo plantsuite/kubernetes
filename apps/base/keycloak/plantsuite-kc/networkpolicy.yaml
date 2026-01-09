@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-istio-ambient
+spec:
+  podSelector:
+    matchLabels:
+      app: keycloak
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 15008
+      from:
+        - namespaceSelector:
+            matchLabels:
+              istio.io/dataplane-mode: ambient
+  policyTypes:
+    - Ingress

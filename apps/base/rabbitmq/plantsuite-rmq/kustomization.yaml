@@ -1,0 +1,4 @@
+namespace: rabbitmq
+
+resources:
+  - plantsuite-rmq.yaml

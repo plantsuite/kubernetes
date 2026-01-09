@@ -1,0 +1,23 @@
+labels:
+  - pairs:
+      app: queries
+      app.kubernetes.io/name: queries
+    includeSelectors: true
+    includeTemplates: true
+
+resources:
+  - serviceaccount.yaml
+  - role.yaml
+  - rolebinding.yaml
+  - deployment.yaml
+  - service.yaml
+  - virtualservice.yaml
+  - hpa.yaml
+
+configMapGenerator:
+  - name: queries-appsettings
+    files:
+      - appsettings.json
+
+generatorOptions:
+  disableNameSuffixHash: true

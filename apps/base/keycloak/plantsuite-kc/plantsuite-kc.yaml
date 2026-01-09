@@ -1,0 +1,66 @@
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: plantsuite-kc
+spec:
+  instances: 3
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  db:
+    vendor: postgres
+    url: jdbc:postgresql://plantsuite-ppgc-pgbouncer.postgresql.svc:5432/keycloak
+    poolInitialSize: 20
+    poolMinSize: 20
+    poolMaxSize: 60
+    usernameSecret:
+      key: db_username
+      name: keycloak
+    passwordSecret:
+      key: db_password
+      name: keycloak
+  hostname:
+    hostname: account.plantsuite.local
+    strict: true
+  http:
+    httpEnabled: true
+  ingress:
+    enabled: false
+  networkPolicy:
+    enabled: true
+    http:
+      - namespaceSelector:
+          matchLabels:
+            istio.io/dataplane-mode: ambient
+  proxy:
+    headers: xforwarded
+  tracing:
+    enabled: true
+    endpoint: http://dashboard.aspire.svc.cluster.local:4317
+    samplerType: parentbased_traceidratio
+    samplerRatio: 0.01
+  unsupported:
+    podTemplate:
+      spec:
+        containers:
+          - volumeMounts:
+              - mountPath: /opt/keycloak/providers
+                name: keycloak-ps-theme
+        volumes:
+          - configMap:
+              name: keycloak-ps-theme
+            name: keycloak-ps-theme
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - keycloak
+                topologyKey: kubernetes.io/hostname

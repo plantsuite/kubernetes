@@ -1,0 +1,19 @@
+labels:
+  - pairs:
+      app: timeseries-buffer
+      app.kubernetes.io/name: timeseries-buffer
+    includeSelectors: true
+    includeTemplates: true
+
+resources:
+  - statefulset.yaml
+  - service.yaml
+  - hpa.yaml
+
+configMapGenerator:
+  - name: timeseries-buffer-appsettings
+    files:
+      - appsettings.json
+
+generatorOptions:
+  disableNameSuffixHash: true

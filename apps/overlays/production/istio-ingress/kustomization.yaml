@@ -1,0 +1,10 @@
+namespace: istio-ingress
+
+resources:
+  - ../../../base/istio-ingress
+
+patches:
+  - target:
+      kind: Deployment
+      name: gateway
+    path: patches/deployment-ops.yaml

@@ -1,0 +1,7 @@
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: plantsuite-psmdb
+spec:
+  unsafeFlags:
+    replsetSize: true

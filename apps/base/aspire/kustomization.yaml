@@ -1,0 +1,25 @@
+namespace: aspire
+
+labels:
+  - pairs:
+      app: aspire-dashboard
+      app.kubernetes.io/name: aspire-dashboard
+    includeSelectors: true
+    includeTemplates: true
+
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - service.yaml
+  - virtualservice.yaml
+
+configMapGenerator:
+  - name: aspire-dashboard-appsettings
+    literals:
+      - DASHBOARD__OTLP__CORS__ALLOWEDORIGINS=*
+      - DASHBOARD__TELEMETRYLIMITS__MAXLOGCOUNT=1000
+      - DASHBOARD__TELEMETRYLIMITS__MAXTRACECOUNT=1000
+      - DASHBOARD__TELEMETRYLIMITS__MAXMETRICSCOUNT=1000
+
+generatorOptions:
+  disableNameSuffixHash: true

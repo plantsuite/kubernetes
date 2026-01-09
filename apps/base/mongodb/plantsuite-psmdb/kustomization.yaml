@@ -1,0 +1,4 @@
+namespace: mongodb
+
+resources:
+  - plantsuite-psmdb.yaml

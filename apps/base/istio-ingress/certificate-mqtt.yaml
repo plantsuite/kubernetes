@@ -1,0 +1,32 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: plantsuite-mqtt
+spec:
+  secretName: plantsuite-mqtt-cert
+  duration: 4380h        # 6 meses
+  renewBefore: 720h      # 30 dias antes
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  subject:
+    organizations:
+      - PlantSuite
+    organizationalUnits:
+      - MQTT
+    countries:
+      - BR
+    provinces:
+      - SP
+    localities:
+      - Sao Paulo
+  commonName: "mqtt.plantsuite.local"
+  dnsNames:
+    - "mqtt.plantsuite.local"
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  issuerRef:
+    name: selfsigned
+    kind: ClusterIssuer

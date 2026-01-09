@@ -1,0 +1,15 @@
+namespace: istio-ingress
+
+resources:
+  - namespace.yaml
+  - gateway.yaml
+  - certificate-mqtt.yaml
+  - certificate-wildcard.yaml
+
+helmCharts:
+  - name: gateway
+    repo: https://istio-release.storage.googleapis.com/charts
+    version: 1.28.2
+    releaseName: gateway
+    namespace: istio-ingress
+    valuesFile: helm-values.yaml

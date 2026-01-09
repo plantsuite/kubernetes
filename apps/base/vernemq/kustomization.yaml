@@ -1,0 +1,44 @@
+namespace: vernemq
+
+resources:
+  - namespace.yaml
+  - virtualservice.yaml
+
+secretGenerator:
+  - name: vernemq-env
+    envs:
+      - .env.secret
+  - name: plantsuite-cr
+    files:
+      - .dockerconfigjson=dockerconfig.json
+    type: kubernetes.io/dockerconfigjson
+
+configMapGenerator:
+  - name: vernemq-auth-redis
+    files:
+      - mountpoint-modifier-redis.lua
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+helmCharts:
+  - name: vernemq
+    repo: https://vernemq.github.io/docker-vernemq
+    version: 2.1.1
+    releaseName: plantsuite-vmq
+    namespace: vernemq
+    valuesFile: helm-values.yaml
+
+patches:
+  - target:
+      kind: Service
+      name: plantsuite-vmq
+    patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: plantsuite-vmq
+      spec:
+        ports:
+          - port: 8080
+            appProtocol: kubernetes.io/ws

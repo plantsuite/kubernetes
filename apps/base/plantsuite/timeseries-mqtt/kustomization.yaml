@@ -1,0 +1,20 @@
+labels:
+  - pairs:
+      app: timeseries-mqtt
+      app.kubernetes.io/name: timeseries-mqtt
+    includeSelectors: true
+    includeTemplates: true
+
+resources:
+  - statefulset.yaml
+  - service.yaml
+  - virtualservice.yaml
+  - hpa.yaml
+
+configMapGenerator:
+  - name: timeseries-mqtt-appsettings
+    files:
+      - appsettings.json
+
+generatorOptions:
+  disableNameSuffixHash: true

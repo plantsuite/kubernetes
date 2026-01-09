@@ -1,0 +1,10 @@
+namespace: rabbitmq
+
+resources:
+  - ../../../../base/rabbitmq/plantsuite-rmq
+
+patches:
+  - target:
+      kind: RabbitmqCluster
+      name: plantsuite-rmq
+    path: patches/plantsuite-rmq.yaml

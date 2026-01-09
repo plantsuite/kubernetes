@@ -1,0 +1,228 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workflows
+spec:
+  template:
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - workflows
+      containers:
+        - name: workflows
+          image: plantsuite.azurecr.io/plantsuite-workflows:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: plantsuite-env
+            - configMapRef:
+                name: dotnet-env
+            - configMapRef:
+                name: app-env
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: POD_SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.serviceAccountName
+            - name: DOTNET_SYSTEM_NET_HTTP_USESOCKETSHTTPHANDLER
+              value: "0"
+            - name: SSL_CERT_FILE
+              value: /etc/ssl/certs/ca-certificates.crt
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 100m
+              memory: 256Mi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 3
+            successThreshold: 1
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 5
+            timeoutSeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 30
+            timeoutSeconds: 3
+            periodSeconds: 20
+            successThreshold: 1
+            failureThreshold: 5
+          volumeMounts:
+            - name: appsettings
+              readOnly: true
+              mountPath: /app/appsettings.json
+              subPath: appsettings.json
+            - name: license
+              readOnly: true
+              mountPath: /etc/plantsuite
+            - name: ca-certificates
+              mountPath: /etc/ssl/certs/ca-certificates.crt
+              subPath: ca.crt
+              readOnly: true
+        - name: workflows-ui
+          image: plantsuite.azurecr.io/plantsuite-workflows-studio:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http-ui
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: plantsuite-env
+            - configMapRef:
+                name: dotnet-env
+            - configMapRef:
+                name: app-env
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: POD_SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.serviceAccountName
+            - name: DOTNET_SYSTEM_NET_HTTP_USESOCKETSHTTPHANDLER
+              value: "0"
+            - name: SSL_CERT_FILE
+              value: /etc/ssl/certs/ca-certificates.crt
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 100m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http-ui
+              scheme: HTTP
+            initialDelaySeconds: 5
+            timeoutSeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http-ui
+              scheme: HTTP
+            timeoutSeconds: 3
+            periodSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http-ui
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 30
+          volumeMounts:
+            - name: appsettings
+              readOnly: true
+              mountPath: /usr/share/nginx/html/appsettings.json
+              subPath: appsettings-ui.json
+            - name: license
+              readOnly: true
+              mountPath: /etc/plantsuite
+            - name: ca-certificates
+              mountPath: /etc/ssl/certs/ca-certificates.crt
+              subPath: ca.crt
+              readOnly: true
+      volumes:
+        - name: appsettings
+          configMap:
+            name: workflows-appsettings
+            items:
+              - key: appsettings.json
+                path: appsettings.json
+              - key: appsettings-ui.json
+                path: appsettings-ui.json
+        - name: license
+          secret:
+            secretName: plantsuite-license
+            items:
+              - key: license.crt
+                path: license.crt
+        - name: ca-certificates
+          secret:
+            secretName: ca-certificates
+            items:
+              - key: ca.crt
+                path: ca.crt
+      imagePullSecrets:
+        - name: plantsuite-cr
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30

@@ -1,0 +1,33 @@
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: plantsuite-rmq
+spec:
+  replicas: 3
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+  rabbitmq:
+    additionalConfig: |
+      cluster_partition_handling = autoheal
+      net_ticktime = 30
+      disk_free_limit.relative = 1.0
+      collect_statistics_interval = 10000
+      default_queue_type = quorum
+  persistence:
+    storage: "5Gi"
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - plantsuite-rmq
+          topologyKey: kubernetes.io/hostname
+

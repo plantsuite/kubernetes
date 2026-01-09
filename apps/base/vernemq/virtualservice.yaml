@@ -1,0 +1,27 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: plantsuite-vmq
+spec:
+  hosts:
+    - mqtt.plantsuite.local
+  gateways:
+    - istio-ingress/gateway
+  tcp:
+    - match:
+        - port: 1883
+        - port: 8883
+      route:
+        - destination:
+            host: plantsuite-vmq
+            port:
+              number: 1883
+  http:
+    - match:
+        - uri:
+            prefix: /mqtt
+      route:
+        - destination:
+            port:
+              number: 8080
+            host: plantsuite-vmq

@@ -1,0 +1,10 @@
+namespace: mongodb
+
+resources:
+  - ../../../../base/mongodb/plantsuite-psmdb
+
+patches:
+  - target:
+      kind: PerconaServerMongoDB
+      name: plantsuite-psmdb
+    path: patches/plantsuite-psmdb-ops.yaml

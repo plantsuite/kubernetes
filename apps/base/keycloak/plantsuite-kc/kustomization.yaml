@@ -1,0 +1,21 @@
+namespace: keycloak
+
+resources:
+  - plantsuite-kc.yaml
+  - plantsuite-kc-realm.yaml
+  - networkpolicy.yaml
+  - serviceentry.yaml
+  - virtualservice.yaml
+
+secretGenerator:
+  - name: keycloak
+    envs:
+      - .env.secret
+
+configMapGenerator:
+  - name: keycloak-ps-theme
+    files:
+      - plantsuite-0.6.0-alpha.6.jar
+
+generatorOptions:
+  disableNameSuffixHash: true

@@ -1,0 +1,5 @@
+namespace: postgresql
+
+resources:
+  - namespace.yaml
+  - percona-operator

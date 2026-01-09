@@ -1,0 +1,12 @@
+- op: replace
+  path: /spec/replsets/0/resources
+  value:
+    requests:
+      cpu: "2000m"
+      memory: "4Gi"
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
+- op: replace
+  path: /spec/replsets/0/volumeSpec/persistentVolumeClaim/resources/requests/storage
+  value: "100Gi"

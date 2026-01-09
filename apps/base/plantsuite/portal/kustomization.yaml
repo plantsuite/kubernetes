@@ -1,0 +1,20 @@
+labels:
+  - pairs:
+      app: portal
+      app.kubernetes.io/name: portal
+    includeSelectors: true
+    includeTemplates: true
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - virtualservice.yaml
+  - hpa.yaml
+
+configMapGenerator:
+  - name: portal-appsettings
+    envs:
+      - appsettings.env
+
+generatorOptions:
+  disableNameSuffixHash: true

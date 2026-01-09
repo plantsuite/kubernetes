@@ -1,0 +1,18 @@
+labels:
+  - pairs:
+      app: alarms
+      app.kubernetes.io/name: alarms
+    includeSelectors: true
+    includeTemplates: true
+
+resources:
+  - serviceaccount.yaml
+  - role.yaml
+  - rolebinding.yaml
+  - deployment.yaml
+  - service.yaml
+  - virtualservice.yaml
+  - hpa.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true

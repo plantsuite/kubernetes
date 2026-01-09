@@ -1,0 +1,10 @@
+namespace: keycloak
+
+resources:
+  - ../../../../base/keycloak/plantsuite-kc
+
+patches:
+  - path: patches/plantsuite-kc.yaml
+    target:
+      kind: Keycloak
+      name: plantsuite-kc

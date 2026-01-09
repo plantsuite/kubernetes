@@ -1,0 +1,95 @@
+replicaCount: 3
+
+fullnameOverride: plantsuite-vmq
+
+image:
+  repository: plantsuite.azurecr.io/vernemq
+  tag: 2.1.1
+
+statefulset:
+  imagePullSecrets:
+    - "plantsuite-cr"
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 1000m
+    memory: 3Gi
+
+podAntiAffinity: hard
+
+persistentVolume:
+  enabled: true
+  accessModes:
+    - ReadWriteOnce
+  size: 5Gi
+
+envFrom:
+  - secretRef:
+      name: vernemq-env
+
+additionalEnv:
+  - name: DOCKER_VERNEMQ_ACCEPT_EULA
+    value: "yes"
+  - name: DOCKER_VERNEMQ_LISTENER__WS__LOCALHOST
+    value: "127.0.0.1:8080"
+  - name: DOCKER_VERNEMQ_ALLOW_ANONYMOUS
+    value: "off"
+  - name: DOCKER_VERNEMQ_PLUGINS__VMQ_DIVERSITY
+    value: "on"
+  - name: DOCKER_VERNEMQ_PLUGINS__VMQ_PASSWD
+    value: "off"
+  - name: DOCKER_VERNEMQ_PLUGINS__VMQ_ACL
+    value: "off"
+  - name: DOCKER_VERNEMQ_VMQ_DIVERSITY__AUTH_REDIS__ENABLED
+    value: "on"
+  - name: DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PORT
+    value: "6379"
+  - name: DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__DATABASE
+    value: "0"
+  - name: DOCKER_VERNEMQ_SHARED_SUBSCRIPTION_POLICY
+    value: "prefer_local"
+  - name: DOCKER_VERNEMQ_LEVELDB__MAXIMUM_MEMORY__PERCENT
+    value: "10"
+
+service:
+  enabled: true
+  type: ClusterIP
+  mqtt:
+    enabled: true
+    port: 1883
+    nodePort: 1883
+  mqtts:
+    enabled: false
+    port: 8883
+    nodePort: 8883
+  ws:
+    enabled: true
+    port: 8080
+    nodePort: 8080
+  wss:
+    enabled: false
+    port: 8443
+    nodePort: 8443
+  api:
+    enabled: false
+    type: ClusterIP
+    port: 8888
+    nodePort: 38888
+
+extraVolumeMounts:
+  - name: vernemq-auth-redis
+    mountPath: vernemq/share/lua/auth/redis.lua
+    subPath: "mountpoint-modifier-redis.lua"
+
+extraVolumes:
+  - name: vernemq-auth-redis
+    configMap:
+      name: vernemq-auth-redis
+
+pdb:
+  enabled: true
+  minAvailable: null
+  maxUnavailable: 1

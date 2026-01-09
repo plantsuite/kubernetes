@@ -1,0 +1,5 @@
+namespace: rabbitmq
+
+resources:
+  - namespace.yaml
+  - operator

@@ -1,0 +1,10 @@
+namespace: vernemq
+
+resources:
+  - ../../../base/vernemq
+
+patches:
+  - target:
+      kind: StatefulSet
+      name: plantsuite-vmq
+    path: patches/statefulset-ops.yaml

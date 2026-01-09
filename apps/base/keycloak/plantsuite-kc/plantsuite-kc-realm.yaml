@@ -1,0 +1,109 @@
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: KeycloakRealmImport
+metadata:
+  name: plantsuite-kc-realm
+spec:
+  keycloakCRName: plantsuite-kc
+  placeholders:
+    PS_AUTH_INTROSPECTION_SECRET:
+      secret:
+        name: keycloak
+        key: client-secret_ps-auth-introspection
+    PS_TENANTS_ADMIN_SECRET:
+      secret:
+        name: keycloak
+        key: client-secret_ps-tenants-admin
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  realm:
+    id: plantsuite
+    realm: plantsuite
+    displayName: PlantSuite
+    enabled: true
+    registrationAllowed: true
+    rememberMe: true
+    resetPasswordAllowed: true
+    verifyEmail: true
+    loginTheme: plantsuite
+    accountTheme: plantsuite
+
+    # Client Público (autenticação do usuário)
+    clients:
+      - clientId: ps-iot-portal
+        name: PlantSuite Portal Public Client
+        description: Public client for user authentication
+        enabled: true
+        publicClient: true
+        standardFlowEnabled: true
+        implicitFlowEnabled: true
+        directAccessGrantsEnabled: true
+        redirectUris:
+          - "https://portal.plantsuite.local/*"
+        webOrigins:
+          - "*"
+        defaultClientScopes:
+          - profile
+          - email
+          - roles
+
+      # Client Confidencial (introspection)
+      - clientId: ps-auth-introspection
+        name: PlantSuite Introspection Client
+        description: Confidential client for token introspection
+        enabled: true
+        publicClient: false
+        standardFlowEnabled: false
+        directAccessGrantsEnabled: false
+        serviceAccountsEnabled: true
+        clientAuthenticatorType: client-secret
+        secret: "${PS_AUTH_INTROSPECTION_SECRET}"
+        defaultClientScopes:
+          - profile
+          - email
+
+      # Client Confidencial (tenants admin)
+      - clientId: ps-tenants-admin
+        name: PlantSuite Tenants Admin Client
+        description: Confidential client for tenants administration
+        enabled: true
+        publicClient: false
+        standardFlowEnabled: false
+        directAccessGrantsEnabled: false
+        serviceAccountsEnabled: true
+        clientAuthenticatorType: client-secret
+        secret: "${PS_TENANTS_ADMIN_SECRET}"
+        defaultClientScopes:
+          - profile
+          - email
+
+    # Service Account Role Mappings
+    users:
+      - username: service-account-ps-auth-introspection
+        enabled: true
+        serviceAccountClientId: ps-auth-introspection
+        clientRoles:
+          realm-management:
+            - view-users
+            - view-clients
+            - view-realm
+
+      - username: service-account-ps-tenants-admin
+        enabled: true
+        serviceAccountClientId: ps-tenants-admin
+        clientRoles:
+          realm-management:
+            - view-users
+            - view-clients
+            - view-realm
+            - manage-users
+            - manage-clients
+            - manage-realm
+            - query-users
+            - query-clients
+            - query-realms
+            - query-groups

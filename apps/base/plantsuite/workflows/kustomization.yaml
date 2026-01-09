@@ -1,0 +1,20 @@
+labels:
+  - pairs:
+      app: workflows
+      app.kubernetes.io/name: workflows
+    includeSelectors: true
+    includeTemplates: true
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - httproute.yaml
+
+configMapGenerator:
+  - name: workflows-appsettings
+    files:
+      - appsettings.json
+      - appsettings-ui.json
+
+generatorOptions:
+  disableNameSuffixHash: true

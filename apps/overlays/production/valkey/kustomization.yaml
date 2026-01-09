@@ -1,0 +1,10 @@
+namespace: valkey
+
+resources:
+  - ../../../base/valkey
+
+patches:
+  - target:
+      kind: StatefulSet
+      name: valkey
+    path: patches/statefulset-ops.yaml

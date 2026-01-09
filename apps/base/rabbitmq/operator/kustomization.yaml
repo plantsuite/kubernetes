@@ -1,0 +1,20 @@
+namespace: rabbitmq
+
+resources:
+  - cluster-operator-2.18.0.yaml
+
+patches:
+  - target:
+      kind: Deployment
+      name: rabbitmq-cluster-operator
+    patch: |-
+      # Container: operator (index 0)
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 100m
+            memory: 256Mi

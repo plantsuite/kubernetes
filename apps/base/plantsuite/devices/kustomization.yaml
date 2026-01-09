@@ -1,0 +1,20 @@
+labels:
+  - pairs:
+      app: devices
+      app.kubernetes.io/name: devices
+    includeSelectors: true
+    includeTemplates: true
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - virtualservice.yaml
+  - hpa.yaml
+
+configMapGenerator:
+  - name: devices-appsettings
+    files:
+      - appsettings.json
+
+generatorOptions:
+  disableNameSuffixHash: true

@@ -1,0 +1,22 @@
+namespace: keycloak
+
+resources:
+  - keycloak-operator.yml
+  - keycloaks.k8s.keycloak.org-v1.yml
+  - keycloakrealmimports.k8s.keycloak.org-v1.yml
+
+patches:
+  - target:
+      kind: Deployment
+      name: keycloak-operator
+    patch: |-
+      # Container: keycloak-operator (index 0)
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 200m
+            memory: 384Mi
+          limits:
+            cpu: 200m
+            memory: 384Mi

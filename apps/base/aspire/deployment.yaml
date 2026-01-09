@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+spec:
+  template:
+    spec:
+      containers:
+        - name: aspire-dashboard
+          image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 18888
+              protocol: TCP
+            - name: otlp
+              containerPort: 18889
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: aspire-dashboard-appsettings

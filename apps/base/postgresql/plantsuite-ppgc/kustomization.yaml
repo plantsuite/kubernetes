@@ -1,0 +1,4 @@
+namespace: postgresql
+
+resources:
+  - plantsuite-ppgc.yaml

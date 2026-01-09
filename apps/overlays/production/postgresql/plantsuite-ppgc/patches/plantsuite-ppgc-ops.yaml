@@ -1,0 +1,12 @@
+- op: replace
+  path: /spec/instances/0/resources
+  value:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+- op: replace
+  path: /spec/instances/0/dataVolumeClaimSpec/resources/requests/storage
+  value: "1Gi"

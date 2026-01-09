@@ -1,0 +1,23 @@
+labels:
+  - pairs:
+      app: spc
+      app.kubernetes.io/name: spc
+    includeSelectors: true
+    includeTemplates: true
+
+resources:
+  - serviceaccount.yaml
+  - role.yaml
+  - rolebinding.yaml
+  - deployment.yaml
+  - service.yaml
+  - virtualservice.yaml
+  - hpa.yaml
+
+configMapGenerator:
+  - name: spc-appsettings
+    files:
+      - appsettings.json
+
+generatorOptions:
+  disableNameSuffixHash: true

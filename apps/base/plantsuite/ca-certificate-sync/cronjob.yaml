@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sync-ca-certificate
+spec:
+  schedule: "0 */4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        spec:
+          serviceAccountName: certificate-sync
+          containers:
+            - name: sync
+              image: alpine/kubectl:1.34.1
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - /scripts/sync.sh
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 50m
+                  memory: 64Mi
+          
+          restartPolicy: OnFailure
+          volumes:
+            - name: scripts
+              configMap:
+                name: sync-ca-certificate-script
+                defaultMode: 0755

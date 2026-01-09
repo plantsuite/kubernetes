@@ -1,0 +1,8 @@
+{
+    "auths": {
+        "plantsuite.azurecr.io": {
+            "username": "",
+            "password": ""
+        }
+    }
+}

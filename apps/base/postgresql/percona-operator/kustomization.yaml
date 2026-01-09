@@ -1,0 +1,20 @@
+namespace: postgresql
+
+resources:
+  - bundle-v2.8.0.yaml
+
+patches:
+  - target:
+      kind: Deployment
+      name: percona-postgresql-operator
+    patch: |-
+      # Container: operator (index 0)
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 100m
+            memory: 256Mi

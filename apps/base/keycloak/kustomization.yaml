@@ -1,0 +1,5 @@
+namespace: keycloak
+
+resources:
+  - namespace.yaml
+  - operator-26.4.7

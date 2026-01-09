@@ -1,0 +1,28 @@
+namespace: valkey
+namePrefix: plantsuite-
+
+labels:
+  - pairs:  
+      app: valkey    
+    includeSelectors: true
+
+resources:
+  - namespace.yaml
+  - statefulset.yaml
+  - service.yaml
+  - pdb.yaml
+
+configMapGenerator:
+  - name: valkey
+    files:
+      - config/valkey.conf
+      - config/init-config.sh
+      - config/init-cluster.sh
+
+secretGenerator:
+  - name: valkey-password
+    envs:
+      - .env.secret
+
+generatorOptions:
+  disableNameSuffixHash: true

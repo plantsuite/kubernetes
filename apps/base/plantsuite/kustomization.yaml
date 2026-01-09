@@ -1,0 +1,77 @@
+namespace: plantsuite
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: plantsuite
+    includeSelectors: true
+
+resources:
+  - namespace.yaml
+  - ca-certificate-sync
+#  - alarms
+  - dashboards
+  - devices
+  - entities
+  - notifications
+  - portal
+  - queries
+  - spc
+  - tenants
+  - timeseries-buffer
+  - timeseries-mqtt
+#  - workflows
+
+secretGenerator:
+  - name: plantsuite-env
+    envs:
+      - .env.secret
+  - name: plantsuite-cr
+    files:
+      - .dockerconfigjson=dockerconfig.json
+    type: kubernetes.io/dockerconfigjson
+  - name: plantsuite-license
+    files:
+      - license.crt
+
+configMapGenerator:
+  - name: dotnet-env
+    literals:
+      - DOTNET_EnableDiagnostics=0
+      - DOTNET_TieredPGO=1
+      - DOTNET_gcServer=1
+      - DOTNET_gcConcurrent=1
+      - DOTNET_GCHeapHardLimitPercent=40
+      - DOTNET_GCLatencyMode=2
+  - name: app-env
+    literals:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - LOG_LEVEL=Debug
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+images:
+  - name: plantsuite.azurecr.io/plantsuite-alarms
+    newTag: 0.4.0
+  - name: plantsuite.azurecr.io/plantsuite-dashboards
+    newTag: 0.25.0
+  - name: plantsuite.azurecr.io/plantsuite-devices
+    newTag: 0.10.0
+  - name: plantsuite.azurecr.io/plantsuite-entities
+    newTag: 0.11.0
+  - name: plantsuite.azurecr.io/plantsuite-notifications
+    newTag: 0.3.0
+  - name: plantsuite.azurecr.io/plantsuite-iot-portal
+    newTag: 0.40.10
+  - name: plantsuite.azurecr.io/plantsuite-queries
+    newTag: 0.22.0
+  - name: plantsuite.azurecr.io/plantsuite-spc
+    newTag: 0.19.0
+  - name: plantsuite.azurecr.io/plantsuite-tenants
+    newTag: 0.12.0-alpha.12
+  - name: plantsuite.azurecr.io/plantsuite-timeseries
+    newTag: 0.14.0-alpha.6
+  - name: plantsuite.azurecr.io/plantsuite-workflows
+    newTag: 1.2.2
+  - name: plantsuite.azurecr.io/plantsuite-workflows-studio
+    newTag: 1.2.2

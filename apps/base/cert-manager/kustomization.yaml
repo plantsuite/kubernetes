@@ -1,0 +1,6 @@
+resources:
+  - namespace.yaml
+  - cert-manager-v1.19.1.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true 
