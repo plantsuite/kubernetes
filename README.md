@@ -23,14 +23,11 @@ Valores em vCPU/RAM/Disco são por nó; colunas em negrito indicam o somatório 
 
 ### Pré-requisitos
 
-Antes de instalar, é necessário:
+Antes de instalar, é necessário **obter o arquivo de licença `license.crt`** e **as credenciais de acesso ao registry `plantsuite.azurecr.io`**.
 
-- **Obter o arquivo de licença `license.crt`** e **as credenciais de acesso ao registry `plantsuite.azurecr.io`**: Solicite ambos ao suporte PlantSuite em [https://support.plantsuite.com](https://support.plantsuite.com). O arquivo de licença deve ser colocado em `apps/base/plantsuite/license.crt` e as credenciais (usuário e senha) devem ser inseridas no arquivo `apps/base/plantsuite/dockerconfig.json`.
+Solicite ambos ao suporte PlantSuite em [https://support.plantsuite.com](https://support.plantsuite.com). 
 
-#### Como atualizar os arquivos
-
-- **license.crt**: Basta substituir o arquivo existente por um novo em `apps/base/plantsuite/license.crt`.
-- **dockerconfig.json**: Edite o arquivo `apps/base/plantsuite/dockerconfig.json` e atualize os campos `username` e `password` conforme as novas credenciais fornecidas pelo suporte.
+O arquivo de licença deve ser colocado em `apps/base/plantsuite/license.crt` e as credenciais (usuário e senha) devem ser inseridas no arquivo `apps/base/plantsuite/dockerconfig.json` e `apps/base/vernemq/dockerconfig.json`.
 
 ### Ferramentas
 
