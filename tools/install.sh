@@ -742,6 +742,64 @@ handle_timeout() {
   done
 }
 
+# Função para limpar senhas dos arquivos .env.secret
+cleanup_env_secrets() {
+  klog "Iniciando limpeza de senhas dos arquivos .env.secret..."
+
+  # Arquivos a processar
+  local files=(
+    "apps/base/keycloak/plantsuite-kc/.env.secret"
+    "apps/base/plantsuite/.env.secret"
+    "apps/base/valkey/.env.secret"
+    "apps/base/vernemq/.env.secret"
+  )
+
+  for file in "${files[@]}"; do
+    if [ ! -f "$file" ]; then
+      warning "Arquivo $file não encontrado. Pulando..."
+      continue
+    fi
+
+    klog "Processando $file..."
+
+    # Remover possíveis blocos de fence (```...) e limpar senhas conforme padrões.
+    # Usa Perl para maior robustez frente a caracteres especiais e padrões variados.
+    tmpfile=$(mktemp)
+    perl -0777 -pe '
+      # Remove blocos de fence (```...```), se existirem
+      s/^```[^\n]*\n|```[ \t]*\n//mg;
+
+      # MongoDB: substituir user:senha@ por user:@ (preserva usuário)
+      s/^(Database__MongoDb__ConnectionString=)(.*?mongodb:\/\/[^:]+:)[^@]*@/$1$2@/mix;
+
+      # Redis: substituir ,password=senha por ,password=
+      s/^(Database__Redis__ConnectionString=.*?,)password=[^,\r\n]*/$1password=/mi;
+
+      # Valores diretos de senha (case-insensitive): qualquer chave que contenha 'password'
+      s/^(.*(?i:password).*?)=.*/$1=/mg;
+
+      # Client secrets (client-secret_*)
+      s/^(client-secret_[^=\n]*)=.*/$1=/mig;
+
+      # Keycloak client secrets
+      s/^(Keycloak__AdminClientSecret)=.*/$1=/mg;
+      s/^(Keycloak__IntrospectionClientSecret)=.*/$1=/mg;
+    ' "$file" > "$tmpfile" && mv "$tmpfile" "$file"
+
+    # Garantir que não fiquem backups com senhas expostas
+    if [ -f "${file}.bak" ]; then
+      rm -f "${file}.bak"
+      klog "Removido backup inseguro: ${file}.bak"
+    fi
+
+    klog "Senhas removidas de $file."
+  done
+
+  # Remover qualquer arquivo .env.secret.bak residual no diretório apps/base
+  find apps/base -type f -name "*.env.secret.bak" -print -exec rm -f {} + 2>/dev/null || true
+  klog "Limpeza de senhas concluída. Todos os backups .bak foram removidos."
+}
+
 # Função para aguardar DaemonSet com spinner e tratamento de timeout interativo
 wait_daemonset_ready() {
   local namespace="$1"
@@ -1109,13 +1167,24 @@ if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 11 " ]]; then
   wait_statefulset_ready "vernemq" "app.kubernetes.io/name=plantsuite-vmq" "plantsuite-vmq" "plantsuite-vmq"
 fi
 
-# Próximos passos: instalar outros componentes, aguardar serviços, obter secrets, etc.
-## ...
-
 # Componente 12: plantsuite
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 12 " ]]; then
   echo ""
   update_plantsuite_env
   apply_component "apps/base/plantsuite/" "plantsuite"
   wait_plantsuite_components_ready
+fi
+
+# Limpeza opcional de senhas
+echo ""
+echo ""
+echo "🔐 Limpeza de senhas armazenadas"
+echo " - Por segurança, é recomendado remover as senhas armazenadas nos arquivos .env.secret após a instalação."
+echo " - Você poderá consultar as senhas nos Secrets do Kubernetes, se necessário."
+echo ""
+read -p "Deseja remover as senhas? (s/n): " response
+if [[ "$response" =~ ^[sS][iI][mM]|[sS]$ ]]; then
+  cleanup_env_secrets
+else
+  klog "Limpeza de senhas pulada."
 fi
