@@ -11,9 +11,7 @@ spec:
     size: 4096
   subject:
     organizations:
-      - PlantSuite
-    organizationalUnits:
-      - MQTT
+      - PlantSuite Software Ltda
     countries:
       - BR
     provinces:
