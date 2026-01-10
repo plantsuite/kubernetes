@@ -8,6 +8,9 @@ labels:
 
 resources:
   - namespace.yaml
+  - serviceaccount.yaml
+  - role.yaml
+  - rolebinding.yaml
   - statefulset.yaml
   - service.yaml
   - pdb.yaml

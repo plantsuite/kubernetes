@@ -14,6 +14,7 @@ spec:
   replicas: 6
   template:
     spec:
+      serviceAccountName: valkey
       # setup configuration, directories and ensure correct permissions
       initContainers:
         - name: get-replicas
@@ -21,9 +22,15 @@ spec:
           command: ["sh", "-c"]
           args:
             - |
-                REPLICAS=$(kubectl get statefulset -l app=valkey -o jsonpath='{.items[0].spec.replicas}' 2>/dev/null || echo "6")
+                SERVICENAME=$(echo ${HOSTNAME} | rev | cut -d'-' -f2- | rev)
+                REPLICAS=$(kubectl get statefulset ${SERVICENAME} -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "6")
                 echo "REPLICAS=${REPLICAS}" > /shared/replicas.env
                 echo "Detected ${REPLICAS} replicas from StatefulSet"
+          env:
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           volumeMounts:
             - name: shared
               mountPath: /shared
