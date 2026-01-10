@@ -26,11 +26,21 @@ spec:
     displayName: PlantSuite
     enabled: true
     registrationAllowed: true
-    rememberMe: true
-    resetPasswordAllowed: true
-    verifyEmail: true
+    registrationEmailAsUsername: false
+    loginWithEmailAllowed: true
+    duplicateEmailsAllowed: false
+    verifyEmail: false
+    rememberMe: false
+    resetPasswordAllowed: false
+    editUsernameAllowed: false
     loginTheme: plantsuite
     accountTheme: plantsuite
+    internationalizationEnabled: true
+    supportedLocales:
+      - pt-BR
+      - en
+      - es
+    defaultLocale: pt-BR
 
     # Client Público (autenticação do usuário)
     clients:
@@ -47,9 +57,40 @@ spec:
         webOrigins:
           - "*"
         defaultClientScopes:
+          - basic
           - profile
           - email
-          - roles
+        protocolMappers:
+          - name: audience
+            protocol: openid-connect
+            protocolMapper: oidc-audience-mapper
+            consentRequired: false
+            config:
+              included.client.audience: ps-iot-portal
+              id.token.claim: "true"
+              access.token.claim: "true"
+          - name: realm-roles
+            protocol: openid-connect
+            protocolMapper: oidc-usermodel-realm-role-mapper
+            consentRequired: false
+            config:
+              "multivalued": "true"
+              "claim.name": "realm_access.roles"
+              "jsonType.label": "String"
+              "userinfo.token.claim": "true"
+              "id.token.claim": "false"
+              "access.token.claim": "true"
+          - name: client-roles-userinfo
+            protocol: openid-connect
+            protocolMapper: oidc-usermodel-client-role-mapper
+            consentRequired: false
+            config:
+              "clientId": "ps-iot-portal"
+              "claim.name": "resource_access.ps-iot-portal.roles"
+              "jsonType.label": "String"
+              "userinfo.token.claim": "true"
+              "id.token.claim": "false"
+              "access.token.claim": "false"
 
       # Client Confidencial (introspection)
       - clientId: ps-auth-introspection
