@@ -3,7 +3,6 @@
 ## Visão geral
 
 Manifestos [Kustomize](https://kustomize.io/) para instalar, atualizar e remover o stack [PlantSuite](https://www.plantsuite.com) em Kubernetes, com overlays para diferentes cenários (base, minimal, produção). Inclui scripts automatizados, configuração de dependências, certificados e instruções para acesso seguro aos serviços.
-
 > 📚 Para guias detalhados sobre personalização, observabilidade e outros tópicos do stack, consulte a pasta `docs/`.
 
 ## Camadas
@@ -30,6 +29,11 @@ Antes de instalar, é necessário **obter o arquivo de licença `license.crt`** 
 Solicite ambos ao suporte PlantSuite em [https://support.plantsuite.com](https://support.plantsuite.com). 
 
 O arquivo de licença deve ser colocado em `apps/base/plantsuite/license.crt` e as credenciais (usuário e senha) devem ser inseridas no arquivo `apps/base/plantsuite/dockerconfig.json` e `apps/base/vernemq/dockerconfig.json`.
+
+Além dos arquivos acima, verifique também as ferramentas abaixo instaladas e disponíveis no `PATH`:
+
+- `kubectl`: necessário para interagir com o cluster Kubernetes e configurar o contexto desejado. Instruções oficiais de instalação: https://kubernetes.io/docs/tasks/tools/
+- `helm`: necessário para o uso de `--enable-helm` com `kubectl kustomize` — confirme que está usando uma versão compatível, atualmente é a versão 3. Instruções oficiais de instalação: https://helm.sh/docs/intro/install/
 
 ### Ferramentas
 
