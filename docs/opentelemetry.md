@@ -1,15 +1,17 @@
 # Observabilidade com OpenTelemetry no PlantSuite
 
-## Compatibilidade
-
 Os serviços do PlantSuite são compatíveis com o padrão [OpenTelemetry](https://opentelemetry.io/), permitindo a coleta e exportação de logs, traces e métricas de forma padronizada. Isso facilita a integração com ferramentas de observabilidade modernas e o monitoramento centralizado do ambiente.
+
+Este template não instala ferramentas de monitoramento do cluster Kubernetes, pois as necessidades podem variar de acordo com o ambiente. 
+
+O objetivo é mostrar como integrar o PlantSuite com ferramentas compatíveis com OpenTeletry, o Aspire Dashboard é usado apenas como exemplo.
 
 ## Exemplo de envio para o Aspire Dashboard
 
 O Aspire Dashboard pode receber logs, traces e métricas enviados via OpenTelemetry, permitindo visualização e análise em tempo real dos serviços do PlantSuite.
 
 
-## Exemplo de configuração (appsettings.json)
+### Exemplo de configuração (appsettings.json)
 
 Abaixo um exemplo de configuração do PlantSuite, enviando dados para o Aspire Dashboard via OpenTelemetry:
 
