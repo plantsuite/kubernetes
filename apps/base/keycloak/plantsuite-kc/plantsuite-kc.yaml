@@ -7,10 +7,10 @@ spec:
   resources:
     requests:
       cpu: 500m
-      memory: 768Mi
+      memory: 1Gi
     limits:
       cpu: 500m
-      memory: 768Mi
+      memory: 1Gi
   db:
     vendor: postgres
     url: jdbc:postgresql://plantsuite-ppgc-pgbouncer.postgresql.svc:5432/keycloak
