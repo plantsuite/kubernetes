@@ -179,6 +179,12 @@ if ! command -v kubectl &> /dev/null; then
   exit 1
 fi
 
+# Verifica se helm está instalado (necessário para --enable-helm do kustomize)
+if ! command -v helm &> /dev/null; then
+  error "helm não encontrado. Instale o Helm antes de continuar (necessário para --enable-helm no kustomize)."
+  exit 1
+fi
+
 klog "Obtendo contextos disponíveis do Kubernetes..."
 kubectl config get-contexts
 

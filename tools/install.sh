@@ -17,7 +17,7 @@ wait_cert_manager_webhook_ready() {
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      printf "\rAguardando cert-manager webhook... %s" "${spinner[$idx]}"
+      cl_printf "Aguardando cert-manager webhook... %s" "${spinner[$idx]}"
       sleep $interval
       elapsed=$((elapsed + interval))
     done
@@ -54,6 +54,15 @@ klog() {
   printf "\033[1;34m[INFO]\033[0m %s\n" "$1"
 }
 
+# Imprime uma linha limpando-a antes (usado por spinners/progress)
+# Uso: cl_printf <format> [args...]
+cl_printf() {
+  # Sempre limpa a linha antes de imprimir
+  printf "\r\033[K"
+  # Em seguida imprime a mensagem formatada
+  printf "$@"
+}
+
 # Verifica se o script está sendo executado a partir da raiz do repositório
 assert_repo_root() {
   if [ ! -d "apps" ] || [ ! -d "apps/base" ] || [ ! -f "README.md" ]; then
@@ -78,7 +87,7 @@ wait_with_spinner() {
   while [ $elapsed -lt $seconds ]; do
     idx=$(( (elapsed / interval) % 4 ))
     remaining=$((seconds - elapsed))
-    printf "\r%s (restam %ss) %s" "$message" "$remaining" "${spinner[$idx]}"
+    cl_printf "%s (restam %ss) %s" "$message" "$remaining" "${spinner[$idx]}"
     sleep $interval
     elapsed=$((elapsed + interval))
   done
@@ -164,10 +173,38 @@ update_vernemq_valkey_password() {
   fi
   
   # Usar sed para atualizar a senha do Redis (Valkey)
-  sed -i '' "s|^DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=.*|DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=${valkey_password}|" "$env_file"
+  # Use portable in-place sed to support GNU sed (Linux) and BSD sed (macOS)
+  sed_inplace "s|^DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=.*|DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=${valkey_password}|" "$env_file"
   
   klog "Senha do Valkey atualizada no VerneMQ com sucesso."
 }
+
+ # Helper sed portátil para edição in-place
+ # Uso: sed_inplace '<script-sed>' <arquivo>
+ # Implementação robusta: aplica o script do sed escrevendo em arquivo temporário
+ # e movendo para o destino. Isso evita diferenças entre GNU e BSD sed.
+ sed_inplace() {
+   if [ "$#" -lt 2 ]; then
+     echo "uso: sed_inplace <script> <arquivo>" >&2
+     return 2
+   fi
+   local script="$1"; shift
+   local file="$1"
+
+   if [ ! -f "$file" ]; then
+     echo "arquivo não encontrado: $file" >&2
+     return 3
+   fi
+
+   local tmp
+   tmp=$(mktemp "${file}.tmp.XXXXXX") || return 4
+
+   # Usa sed sem -i para enviar saída para o arquivo temporário
+   sed -e "$script" "$file" > "$tmp" || { rm -f "$tmp"; return 5; }
+
+   # Move o temporário para o arquivo final preservando permissões onde possível
+   mv "$tmp" "$file"
+ }
 
 # Função para gerar senha segura e atualizar .env.secret
 generate_secure_password() {
@@ -437,7 +474,7 @@ wait_statefulset_ready() {
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      printf "\rAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+        cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
       sleep $interval
       elapsed=$((elapsed + interval))
     done
@@ -470,7 +507,7 @@ wait_psmdb_ready() {
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      printf "\rAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+        cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
       sleep $interval
       elapsed=$((elapsed + interval))
     done
@@ -503,7 +540,7 @@ wait_postgrescluster_ready() {
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      printf "\rAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+        cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
       sleep $interval
       elapsed=$((elapsed + interval))
     done
@@ -536,7 +573,7 @@ wait_keycloak_ready() {
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      printf "\rAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+        cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
       sleep $interval
       elapsed=$((elapsed + interval))
     done
@@ -569,7 +606,7 @@ wait_keycloak_realm_ready() {
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      printf "\rAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+        cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
       sleep $interval
       elapsed=$((elapsed + interval))
     done
@@ -602,7 +639,7 @@ wait_rabbitmq_ready() {
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      printf "\rAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+        cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
       sleep $interval
       elapsed=$((elapsed + interval))
     done
@@ -652,8 +689,17 @@ wait_plantsuite_components_ready() {
   local interval=5
   local start_ts=$(date +%s)
 
-  IFS=$'\n' read -r -d '' -a deployments <<< "$(kubectl get deploy -n \"$namespace\" -o jsonpath='{range .items[*]}{.metadata.name}{"\\n"}{end}' 2>/dev/null; printf '\0')"
-  IFS=$'\n' read -r -d '' -a statefulsets <<< "$(kubectl get sts -n \"$namespace\" -o jsonpath='{range .items[*]}{.metadata.name}{"\\n"}{end}' 2>/dev/null; printf '\0')"
+  # Popula arrays de deployments e statefulsets usando loops 'read' para evitar
+  # problemas com bytes nulos em substituições de comando.
+  deployments=()
+  while IFS= read -r line; do
+    [ -n "$line" ] && deployments+=("$line")
+  done < <(kubectl get deploy -n "$namespace" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null)
+
+  statefulsets=()
+  while IFS= read -r line; do
+    [ -n "$line" ] && statefulsets+=("$line")
+  done < <(kubectl get sts -n "$namespace" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null)
 
   local pending=()
   local item
@@ -677,12 +723,12 @@ wait_plantsuite_components_ready() {
       IFS=":" read -r kind name <<<"$item"
       if [ "$kind" = "deploy" ]; then
         if is_deployment_ready "$namespace" "$name"; then
-          klog "$name está pronto."
+          # componente pronto: não logar individualmente, apenas removemos da lista
           continue
         fi
       else
         if is_statefulset_ready "$namespace" "$name"; then
-          klog "$name está pronto."
+          # componente pronto: não logar individualmente, apenas removemos da lista
           continue
         fi
       fi
@@ -691,21 +737,24 @@ wait_plantsuite_components_ready() {
 
     pending=("${new_pending[@]}")
     if [ ${#pending[@]} -eq 0 ]; then
-      printf "\r\033[K"
+      cl_printf "\033[K"
       break
     fi
 
     local elapsed=$(( $(date +%s) - start_ts ))
     if [ $elapsed -ge $timeout ]; then
-      printf "\r\033[K"
+      cl_printf "\033[K"
       handle_timeout "Plantsuite (pendentes: ${pending[*]})"
       # handle_timeout só retorna se o usuário decidir continuar/aguardar; reinicia contagem
       start_ts=$(date +%s)
     fi
 
-    printf "\rAguardando componentes do Plantsuite: %s" "$(printf '%s ' "${pending[@]#*:}")"
+    cl_printf "Aguardando componentes do Plantsuite: %s" "$(printf '%s ' "${pending[@]#*:}")"
     sleep $interval
   done
+  # Ao terminar, exibe apenas o log final
+  cl_printf "\033[K"
+  klog "Componentes do PlantSuite estão prontos."
 }
 
 # Função para perguntar ao usuário como proceder quando um recurso não fica pronto
@@ -786,18 +835,10 @@ cleanup_env_secrets() {
       s/^(Keycloak__IntrospectionClientSecret)=.*/$1=/mg;
     ' "$file" > "$tmpfile" && mv "$tmpfile" "$file"
 
-    # Garantir que não fiquem backups com senhas expostas
-    if [ -f "${file}.bak" ]; then
-      rm -f "${file}.bak"
-      klog "Removido backup inseguro: ${file}.bak"
-    fi
-
     klog "Senhas removidas de $file."
   done
 
-  # Remover qualquer arquivo .env.secret.bak residual no diretório apps/base
-  find apps/base -type f -name "*.env.secret.bak" -print -exec rm -f {} + 2>/dev/null || true
-  klog "Limpeza de senhas concluída. Todos os backups .bak foram removidos."
+  klog "Limpeza de senhas concluída."
 }
 
 # Função para aguardar DaemonSet com spinner e tratamento de timeout interativo
@@ -830,7 +871,7 @@ wait_daemonset_ready() {
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      printf "\rAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+        printf "\r\033[KAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
       sleep $interval
       elapsed=$((elapsed + interval))
     done
@@ -871,7 +912,7 @@ wait_deployment_ready() {
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      printf "\rAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      printf "\r\033[KAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
       sleep $interval
       elapsed=$((elapsed + interval))
     done
@@ -888,6 +929,12 @@ wait_deployment_ready() {
 # Verifica se kubectl está instalado
 if ! command -v kubectl &> /dev/null; then
   error "kubectl não encontrado. Instale o kubectl antes de continuar."
+  exit 1
+fi
+
+# Verifica se helm está instalado (necessário para --enable-helm do kustomize)
+if ! command -v helm &> /dev/null; then
+  error "helm não encontrado. Instale o Helm antes de continuar (necessário para --enable-helm no kustomize)."
   exit 1
 fi
 
@@ -1082,7 +1129,7 @@ if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 2 " ]]; then
 
   # Aguarda o webhook do cert-manager antes de aplicar os issuers
   wait_cert_manager_webhook_ready
-  wait_with_spinner 15 "Aguardando propagação dos certificados TLS do webhook..."
+  wait_with_spinner 90 "Aguardando estabilização do cert-manager webhook..."
   apply_component "apps/base/cert-manager/issuers/" "cert-manager issuers"
 fi
 
@@ -1093,7 +1140,7 @@ if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 3 " ]]; then
   wait_deployment_ready "istio-system" "app=istiod" "istiod" "istiod"
   wait_daemonset_ready "istio-system" "app=istio-cni-node" "istio-cni-node" "istio-cni-node"
   wait_daemonset_ready "istio-system" "app=ztunnel" "ztunnel" "ztunnel"
-  wait_with_spinner 30 "Aguardando estabilização do istio-system..."
+  wait_with_spinner 60 "Aguardando estabilização do istio-system..."
 fi
 
 # Componente 4: istio-ingress
