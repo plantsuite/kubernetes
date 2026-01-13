@@ -394,7 +394,7 @@ apply_component() {
   
   while true; do
     # Captura stderr para verificar tipo de erro
-    error_output=$(kubectl kustomize --enable-helm "$component_path" 2>&1 | kubectl apply --server-side -f - 2>&1)
+    error_output=$(kubectl kustomize --enable-helm "$component_path" 2>&1 | kubectl apply --server-side --force-conflicts -f - 2>&1)
     exit_code=$?
     
     if [ $exit_code -eq 0 ]; then
@@ -692,14 +692,20 @@ wait_plantsuite_components_ready() {
   # Popula arrays de deployments e statefulsets usando loops 'read' para evitar
   # problemas com bytes nulos em substituições de comando.
   deployments=()
+  tempfile_deploy=$(mktemp)
+  kubectl get deploy -n "$namespace" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null > "$tempfile_deploy"
   while IFS= read -r line; do
     [ -n "$line" ] && deployments+=("$line")
-  done < <(kubectl get deploy -n "$namespace" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null)
+  done < "$tempfile_deploy"
+  rm -f "$tempfile_deploy"
 
   statefulsets=()
+  tempfile_sts=$(mktemp)
+  kubectl get sts -n "$namespace" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null > "$tempfile_sts"
   while IFS= read -r line; do
     [ -n "$line" ] && statefulsets+=("$line")
-  done < <(kubectl get sts -n "$namespace" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null)
+  done < "$tempfile_sts"
+  rm -f "$tempfile_sts"
 
   local pending=()
   local item
@@ -1219,6 +1225,19 @@ if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 12 " ]]; then
   echo ""
   update_plantsuite_env
   apply_component "apps/base/plantsuite/" "plantsuite"
+  if [ "$UPDATE_MODE" = true ]; then
+    klog "Reiniciando componentes do Plantsuite..."
+    # Reiniciar deployments
+    deployments=$(kubectl get deployments -n plantsuite -l app.kubernetes.io/part-of=plantsuite -o jsonpath='{.items[*].metadata.name}')
+    for dep in $deployments; do
+      kubectl rollout restart deployment $dep -n plantsuite >/dev/null
+    done
+    # Reiniciar statefulsets
+    statefulsets=$(kubectl get statefulsets -n plantsuite -l app.kubernetes.io/part-of=plantsuite -o jsonpath='{.items[*].metadata.name}')
+    for sts in $statefulsets; do
+      kubectl rollout restart statefulset $sts -n plantsuite >/dev/null
+    done
+  fi
   wait_plantsuite_components_ready
 fi
 
