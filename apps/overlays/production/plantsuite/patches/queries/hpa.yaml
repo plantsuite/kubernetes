@@ -1,0 +1,9 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: queries
+  labels:
+    kustomize.patch: "true"
+spec:
+  minReplicas: 3
+  maxReplicas: 6

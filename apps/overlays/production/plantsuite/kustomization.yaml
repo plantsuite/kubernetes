@@ -1,0 +1,26 @@
+namespace: plantsuite
+
+resources:
+  - ../../../base/plantsuite
+
+patches:
+  - path: patches/dashboards/hpa.yaml
+  - path: patches/dashboards/deployment.yaml
+  - path: patches/devices/hpa.yaml
+  - path: patches/devices/deployment.yaml
+  - path: patches/entities/hpa.yaml
+  - path: patches/entities/deployment.yaml
+  - path: patches/notifications/hpa.yaml
+  - path: patches/notifications/deployment.yaml
+  - path: patches/queries/hpa.yaml
+  - path: patches/queries/deployment.yaml
+  - path: patches/spc/hpa.yaml
+  - path: patches/spc/deployment.yaml
+  - path: patches/tenants/hpa.yaml
+  - path: patches/tenants/deployment.yaml
+  - path: patches/timeseries-buffer/hpa.yaml
+  - path: patches/timeseries-buffer/statefulset.yaml
+  - path: patches/timeseries-mqtt/hpa.yaml
+  - path: patches/timeseries-mqtt/statefulset.yaml
+  - path: patches/portal/hpa.yaml
+  
