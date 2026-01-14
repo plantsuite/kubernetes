@@ -16,10 +16,10 @@ spec:
   resources:
     requests:
       cpu: 500m
-      memory: 768Mi
+      memory: 512Mi
     limits:
       cpu: 500m
-      memory: 768Mi
+      memory: 1Gi
   realm:
     id: plantsuite
     realm: plantsuite
