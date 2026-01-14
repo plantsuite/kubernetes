@@ -13,7 +13,7 @@ spec:
       memory: 1Gi
   db:
     vendor: postgres
-    url: jdbc:postgresql://plantsuite-ppgc-pgbouncer.postgresql.svc:5432/keycloak
+    url: jdbc:postgresql://plantsuite-ppgc-pgbouncer.postgresql.svc.cluster.local:5432/keycloak
     poolInitialSize: 20
     poolMinSize: 20
     poolMaxSize: 60
