@@ -26,7 +26,7 @@ spec:
     displayName: PlantSuite
     enabled: true
     registrationAllowed: true
-    registrationEmailAsUsername: false
+    registrationEmailAsUsername: true
     loginWithEmailAllowed: true
     duplicateEmailsAllowed: false
     verifyEmail: false
@@ -52,6 +52,7 @@ spec:
         standardFlowEnabled: true
         implicitFlowEnabled: true
         directAccessGrantsEnabled: true
+        rootUrl: "https://portal.plantsuite.local"
         redirectUris:
           - "https://portal.plantsuite.local/*"
         webOrigins:
@@ -88,6 +89,7 @@ spec:
               "clientId": "ps-iot-portal"
               "claim.name": "resource_access.ps-iot-portal.roles"
               "jsonType.label": "String"
+              "multivalued": "true"
               "userinfo.token.claim": "true"
               "id.token.claim": "false"
               "access.token.claim": "false"
