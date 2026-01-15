@@ -1,5 +1,7 @@
 # Kubernetes com MicroK8s
 
+O [MicroK8s](https://canonical.com/microk8s) é uma distribuição de Kubernetes de fácil operação, com foco em simplicidade e baixo consumo de recursos. Ele é um sistema open source para automatizar a implantação, o escalonamento e o gerenciamento de aplicações conteinerizadas. O MicroK8s oferece as funcionalidades essenciais do Kubernetes em uma instalação compacta, podendo ser utilizado tanto em um único nó quanto em clusters de alta disponibilidade para produção.
+
 Esse guia é baseado nos exemplos do [Getting started](https://canonical.com/microk8s/docs/getting-started) e outros tópicos da documentação oficial do [MicroK8s](https://canonical.com/microk8s/docs).
 
 ## Instalar microk8s
