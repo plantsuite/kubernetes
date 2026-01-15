@@ -3,7 +3,7 @@
 ## Visão geral
 
 Manifestos [Kustomize](https://kustomize.io/) para instalar, atualizar e remover o stack [PlantSuite](https://www.plantsuite.com) em Kubernetes, com overlays para diferentes cenários (base, minimal, produção). Inclui scripts automatizados, configuração de dependências, certificados e instruções para acesso seguro aos serviços.
-> 📚 Para guias detalhados sobre personalização, observabilidade e outros tópicos do stack, consulte a pasta `docs/`.
+> 📚 Para guias detalhados sobre personalização, observabilidade e outros tópicos, consulte a pasta `docs/`.
 
 ## Camadas
 - **base** (apps/base): HA com recursos enxutos; bom para testes próximos a produção com menos hardware.
