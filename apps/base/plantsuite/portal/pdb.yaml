@@ -1,7 +1,7 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: portal-pdb
+  name: portal
 spec:
   maxUnavailable: 1
   selector:

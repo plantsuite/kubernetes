@@ -1,7 +1,7 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: devices-pdb
+  name: devices
 spec:
   maxUnavailable: 1
   selector:

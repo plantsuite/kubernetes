@@ -1,7 +1,7 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: queries-pdb
+  name: queries
 spec:
   maxUnavailable: 1
   selector:

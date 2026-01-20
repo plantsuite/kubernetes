@@ -1,7 +1,7 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: entities-pdb
+  name: entities
 spec:
   maxUnavailable: 1
   selector:
