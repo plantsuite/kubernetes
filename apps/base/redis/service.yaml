@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: valkey
+  name: redis
 spec:
   selector:
-    app: valkey
+    app: redis
   ports:
     - name: client
       port: 6379
@@ -12,7 +12,8 @@ spec:
     - name: cluster
       port: 16379
       targetPort: 16379
-    - name: metrics
-      port: 9121
-      targetPort: 9121
-  clusterIP: None
+    # - name: metrics
+    #   port: 9121
+    #   targetPort: 9121
+  type: ClusterIP
+  sessionAffinity: None

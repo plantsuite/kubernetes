@@ -1,6 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: valkey
+  name: redis
 spec:
   replicas: 1

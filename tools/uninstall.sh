@@ -270,9 +270,9 @@ remove_component "apps/base/keycloak/" "keycloak operator"
 wait_namespace_deleted "keycloak"
 
 echo ""
-remove_component "apps/base/valkey/" "valkey"
-wait_statefulset_deleted "valkey" "app=valkey" "plantsuite-valkey"
-wait_namespace_deleted "valkey"
+remove_component "apps/base/redis/" "redis"
+wait_statefulset_deleted "redis" "app=redis" "plantsuite-redis"
+wait_namespace_deleted "redis"
 
 echo ""
 remove_component "apps/base/postgresql/plantsuite-ppgc/" "plantsuite-ppgc"

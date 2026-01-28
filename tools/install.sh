@@ -145,24 +145,24 @@ EOF
   klog "Credenciais do banco de dados atualizadas em $env_file"
 }
 
-# Função para obter a senha do Valkey e atualizar o .env.secret do VerneMQ
-update_vernemq_valkey_password() {
+# Função para obter a senha do Redis e atualizar o .env.secret do VerneMQ
+update_vernemq_redis_password() {
   local env_file="apps/base/vernemq/.env.secret"
   
-  klog "Obtendo senha do Valkey para o VerneMQ..."
+  klog "Obtendo senha do Redis para o VerneMQ..."
   
-  # Obter senha do Valkey
-  local valkey_password
-  # Primeiro tenta obter do Secret no cluster (nome gerado pelo kustomize: plantsuite-valkey-password)
-  valkey_password=$(kubectl get secret plantsuite-valkey-password -n valkey -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
+  # Obter senha do Redis
+  local redis_password
+  # Primeiro tenta obter do Secret no cluster (nome gerado pelo kustomize: plantsuite-redis-password)
+  redis_password=$(kubectl get secret plantsuite-redis-password -n redis -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
   
   # Se não encontrar no cluster, tenta obter do arquivo local .env.secret usado para gerar o Secret
-  if [ -z "$valkey_password" ] && [ -f "apps/base/valkey/.env.secret" ]; then
-    valkey_password=$(grep -E '^password=' apps/base/valkey/.env.secret | head -n1 | cut -d'=' -f2-)
+  if [ -z "$redis_password" ] && [ -f "apps/base/redis/.env.secret" ]; then
+    redis_password=$(grep -E '^password=' apps/base/redis/.env.secret | head -n1 | cut -d'=' -f2-)
   fi
   
-  if [ -z "$valkey_password" ]; then
-    error "Não foi possível obter a senha do Valkey."
+  if [ -z "$redis_password" ]; then
+    error "Não foi possível obter a senha do Redis."
     exit 1
   fi
   
@@ -172,11 +172,11 @@ update_vernemq_valkey_password() {
     exit 1
   fi
   
-  # Usar sed para atualizar a senha do Redis (Valkey)
+  # Usar sed para atualizar a senha do Redis (Redis)
   # Use portable in-place sed to support GNU sed (Linux) and BSD sed (macOS)
-  sed_inplace "s|^DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=.*|DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=${valkey_password}|" "$env_file"
+  sed_inplace "s|^DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=.*|DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=${redis_password}|" "$env_file"
   
-  klog "Senha do Valkey atualizada no VerneMQ com sucesso."
+  klog "Senha do Redis atualizada no VerneMQ com sucesso."
 }
 
  # Helper sed portátil para edição in-place
@@ -220,7 +220,7 @@ generate_secure_password() {
   
   klog "Gerando senha segura..."
   
-  # Gera senha usando caracteres alfanuméricos (compatível com Redis/Valkey e maioria dos sistemas)
+  # Gera senha usando caracteres alfanuméricos (compatível com Redis/Redis e maioria dos sistemas)
   # Evita caracteres especiais que podem causar problemas de escape
   local password=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$length")
   
@@ -289,14 +289,14 @@ update_plantsuite_env() {
   fi
   set_env_value "$env_file" "Database__MongoDb__ConnectionString" "$mongo_conn"
 
-  # Redis/Valkey connection string
-  local valkey_pass
-  valkey_pass=$(kubectl get secret plantsuite-valkey-password -n valkey -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
-  if [ -z "$valkey_pass" ] && [ -f "apps/base/valkey/.env.secret" ]; then
-    valkey_pass=$(grep -E '^password=' apps/base/valkey/.env.secret | head -n1 | cut -d'=' -f2-)
+  # Redis/Redis connection string
+  local redis_pass
+  redis_pass=$(kubectl get secret plantsuite-redis-password -n redis -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
+  if [ -z "$redis_pass" ] && [ -f "apps/base/redis/.env.secret" ]; then
+    redis_pass=$(grep -E '^password=' apps/base/redis/.env.secret | head -n1 | cut -d'=' -f2-)
   fi
-  if [ -z "$valkey_pass" ]; then
-    error "Não foi possível obter a senha do Valkey para montar a connection string do Redis."
+  if [ -z "$redis_pass" ]; then
+    error "Não foi possível obter a senha do Redis para montar a connection string do Redis."
     exit 1
   fi
   
@@ -311,14 +311,14 @@ update_plantsuite_env() {
     # Se não tem, adiciona ", password="
     if echo "$existing_redis_conn" | grep -q "password="; then
       # Tem password: atualiza valor (pode ser vazio ou com valor anterior)
-      redis_conn=$(echo "$existing_redis_conn" | sed "s|password=[^,]*|password=${valkey_pass}|")
+      redis_conn=$(echo "$existing_redis_conn" | sed "s|password=[^,]*|password=${redis_pass}|")
     else
       # Não tem password: adiciona ao final
-      redis_conn="${existing_redis_conn},password=${valkey_pass}"
+      redis_conn="${existing_redis_conn},password=${redis_pass}"
     fi
   else
     # Cria connection string do zero
-    redis_conn="plantsuite-valkey.valkey.svc.cluster.local,password=${valkey_pass}"
+    redis_conn="plantsuite-redis.redis.svc.cluster.local,password=${redis_pass}"
   fi
   set_env_value "$env_file" "Database__Redis__ConnectionString" "$redis_conn"
 
@@ -805,7 +805,7 @@ cleanup_env_secrets() {
   local files=(
     "apps/base/keycloak/plantsuite-kc/.env.secret"
     "apps/base/plantsuite/.env.secret"
-    "apps/base/valkey/.env.secret"
+    "apps/base/redis/.env.secret"
     "apps/base/vernemq/.env.secret"
   )
 
@@ -1004,7 +1004,7 @@ components_check=(
   "aspire:namespace:aspire:"
   "mongodb:namespace:mongodb:"
   "postgresql:namespace:postgresql:"
-  "valkey:namespace:valkey:"
+  "redis:namespace:redis:"
   "keycloak:namespace:keycloak:"
   "rabbitmq:namespace:rabbitmq:"
   "vernemq:namespace:vernemq:"
@@ -1049,7 +1049,7 @@ if [ $installed_count -eq $total_components ]; then
   echo "  5) aspire"
   echo "  6) mongodb (operator + plantsuite-psmdb)"
   echo "  7) postgresql (operator + plantsuite-ppgc)"
-  echo "  8) valkey"
+  echo "  8) redis"
   echo "  9) keycloak (operator + plantsuite-kc + realm)"
   echo " 10) rabbitmq (operator + plantsuite-rmq)"
   echo " 11) vernemq"
@@ -1183,12 +1183,12 @@ if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 7 " ]]; then
   wait_statefulset_ready "postgresql" "postgres-operator.crunchydata.com/cluster=plantsuite-ppgc" "plantsuite-ppgc" "plantsuite-ppgc"
 fi
 
-# Componente 8: valkey
+# Componente 8: redis
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 8 " ]]; then
   echo ""
-  generate_secure_password "apps/base/valkey/.env.secret" "password"
-  apply_component "apps/base/valkey/" "valkey"
-  wait_statefulset_ready "valkey" "app=valkey" "plantsuite-valkey" "valkey"
+  generate_secure_password "apps/base/redis/.env.secret" "password"
+  apply_component "apps/base/redis/" "redis"
+  wait_statefulset_ready "redis" "app=redis" "plantsuite-redis" "redis"
 fi
 
 # Componente 9: keycloak (operator + plantsuite-kc + realm)
@@ -1215,7 +1215,7 @@ fi
 # Componente 11: vernemq
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 11 " ]]; then
   echo ""
-  update_vernemq_valkey_password
+  update_vernemq_redis_password
   apply_component "apps/base/vernemq/" "vernemq"
   wait_statefulset_ready "vernemq" "app.kubernetes.io/name=plantsuite-vmq" "plantsuite-vmq" "plantsuite-vmq"
 fi

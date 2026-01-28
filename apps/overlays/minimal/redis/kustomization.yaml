@@ -1,10 +1,10 @@
-namespace: valkey
+namespace: redis
 
 resources:
-  - ../../../base/valkey
+  - ../../../base/redis
 
 patches:
   - target:
       kind: StatefulSet
-      name: valkey
+      name: redis
     path: patches/statefulset.yaml

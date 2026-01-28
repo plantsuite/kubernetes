@@ -1,9 +1,9 @@
-namespace: valkey
+namespace: redis
 namePrefix: plantsuite-
 
 labels:
   - pairs:  
-      app: valkey    
+      app: redis    
     includeSelectors: true
 
 resources:
@@ -12,18 +12,19 @@ resources:
   - role.yaml
   - rolebinding.yaml
   - statefulset.yaml
+  - service-nodes.yaml
   - service.yaml
   - pdb.yaml
 
 configMapGenerator:
-  - name: valkey
+  - name: redis
     files:
-      - config/valkey.conf
+      - config/redis.conf
       - config/init-config.sh
       - config/init-cluster.sh
 
 secretGenerator:
-  - name: valkey-password
+  - name: redis-env
     envs:
       - .env.secret
 

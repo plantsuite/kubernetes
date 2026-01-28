@@ -1,21 +1,13 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: valkey
+  name: redis
 spec:
-  # Using Parallel pod management policy for several key reasons:
-  # 1. Enables simultaneous pod creation/termination instead of sequential
-  # 2. Faster scaling operations as new nodes can join cluster in parallel
-  # 3. More efficient cluster formation as nodes don't wait for predecessors
-  # 4. Better recovery as replacement pods can be created simultaneously
-  # 5. Safe because init-cluster.sh handles race conditions and cluster state checks
-  podManagementPolicy: Parallel
-  serviceName: valkey
+  serviceName: redis-nodes
   replicas: 6
   template:
     spec:
-      serviceAccountName: valkey
-      # setup configuration, directories and ensure correct permissions
+      serviceAccountName: redis
       initContainers:
         - name: get-replicas
           image: alpine/kubectl:1.34.1
@@ -34,8 +26,15 @@ spec:
           volumeMounts:
             - name: shared
               mountPath: /shared
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 10m
+              memory: 16Mi
         - name: init-config
-          image: busybox
+          image: busybox:1.37.0
           command: ["sh", "-c"]
           args:
             - |
@@ -47,7 +46,7 @@ spec:
             - name: shared
               mountPath: /shared
             - name: config
-              mountPath: /etc/valkey
+              mountPath: /etc/redis
               readOnly: true
             - name: scripts
               mountPath: /scripts
@@ -60,11 +59,27 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            - name: VALKEY_PASSWORD
+            - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: valkey-password
+                  name: redis-env
                   key: password
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: MEMORY_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: redis
+                  resource: limits.memory
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 10m
+              memory: 32Mi
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
@@ -74,13 +89,10 @@ spec:
               - key: app
                 operator: In
                 values:
-                  - valkey
+                  - redis
       containers:
-        # Runs Valkey server
-        # Executes cluster initialization
-        # Exposes client and cluster ports
-        - name: valkey
-          image: valkey/valkey:9.0.0
+        - name: redis
+          image: redis:8.4.0
           ports:
             - name: client
               containerPort: 6379
@@ -92,7 +104,7 @@ spec:
             - name: data
               mountPath: /data
             - name: workdir
-              mountPath: /etc/valkey
+              mountPath: /etc/redis
             - name: scripts
               mountPath: /scripts
           command: ["sh", "-c"]
@@ -102,7 +114,7 @@ spec:
               . /shared/replicas.env 2>/dev/null || REPLICAS=6
               export REPLICAS
               sh /scripts/init-cluster.sh &
-              valkey-server /etc/valkey/valkey.conf
+              redis-server /etc/redis/redis.conf
           env:
             - name: POD_IP
               valueFrom:
@@ -112,11 +124,15 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: VALKEYCLI_AUTH
+            - name: REDISCLI_AUTH
               valueFrom:
                 secretKeyRef:
-                  name: valkey-password
+                  name: redis-env
                   key: password
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           resources:
             requests:
               cpu: 100m
@@ -132,7 +148,13 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - valkey-cli -h localhost -p 6379 ping
+                - |
+                  redis-cli ping && \
+                  if redis-cli info server | grep -q 'cluster_enabled:1'; then
+                    redis-cli cluster nodes >/dev/null
+                  else
+                    true
+                  fi
             initialDelaySeconds: 20
             periodSeconds: 10
             timeoutSeconds: 5
@@ -143,10 +165,16 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - valkey-cli -h localhost -p 6379 ping
+                - |
+                  if redis-cli info server | grep -q 'cluster_enabled:1'; then
+                    redis-cli cluster info | grep -q 'cluster_state:ok' && \
+                    redis-cli cluster nodes | grep -q 'myself.*master\|myself.*slave'
+                  else
+                    redis-cli ping
+                  fi
             initialDelaySeconds: 5
             periodSeconds: 5
-            timeoutSeconds: 1
+            timeoutSeconds: 5
             failureThreshold: 3
             successThreshold: 1
         # # Exports Prometheus metrics
@@ -177,10 +205,10 @@ spec:
           emptyDir: {}
         - name: config
           configMap:
-            name: valkey
+            name: redis
         - name: scripts
           configMap:
-            name: valkey
+            name: redis
             items:
               - key: init-cluster.sh
                 path: init-cluster.sh
@@ -196,4 +224,4 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 5Gi
+            storage: 10Gi
