@@ -24,9 +24,9 @@ klog() {
 
 # Verifica se o script está sendo executado a partir da raiz do repositório
 assert_repo_root() {
-  if [ ! -d "apps" ] || [ ! -d "apps/base" ] || [ ! -f "README.md" ]; then
+  if [ ! -d "k8s" ] || [ ! -d "k8s/base" ] || [ ! -f "README.md" ]; then
     error "Este script deve ser executado a partir da raiz do repositório."
-    echo "Pastas/arquivos esperados não encontrados: 'apps/', 'apps/base/', 'README.md'." >&2
+    echo "Pastas/arquivos esperados não encontrados: 'k8s/', 'k8s/base/', 'README.md'." >&2
     echo "Exemplo de uso: ./tools/uninstall.sh" >&2
     exit 1
   fi
@@ -41,9 +41,9 @@ get_component_path() {
   
   # Se um overlay foi selecionado, verifica se existe o componente no overlay
   if [ -n "$SELECTED_OVERLAY" ] && [ "$SELECTED_OVERLAY" != "base" ]; then
-    # Remove o prefixo "apps/base/" do caminho para obter o caminho relativo
-    local relative_path="${base_path#apps/base/}"
-    local overlay_path="apps/overlays/${SELECTED_OVERLAY}/${relative_path}"
+    # Remove o prefixo "k8s/base/" do caminho para obter o caminho relativo
+    local relative_path="${base_path#k8s/base/}"
+    local overlay_path="k8s/overlays/${SELECTED_OVERLAY}/${relative_path}"
     
     # Verifica se o diretório existe e contém um arquivo kustomization
     if [ -d "$overlay_path" ] && ( [ -f "${overlay_path}kustomization.yaml" ] || [ -f "${overlay_path}kustomization.yml" ] || [ -f "${overlay_path}Kustomization" ] ); then
