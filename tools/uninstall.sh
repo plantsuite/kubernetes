@@ -202,7 +202,7 @@ fi
 # Seleção dinâmica de overlays
 echo ""
 klog "Selecione o overlay utilizado na instalação:"
-overlays_dir="apps/overlays"
+overlays_dir="k8s/overlays"
 declare -a AVAILABLE_OVERLAYS
 if [ -d "$overlays_dir" ]; then
   for d in "$overlays_dir"/*/; do
@@ -247,66 +247,66 @@ fi
 echo ""
 klog "Iniciando desinstalação dos componentes (ordem inversa)..."
 echo ""
-remove_component "apps/base/plantsuite/" "plantsuite"
+remove_component "k8s/base/plantsuite/" "plantsuite"
 wait_namespace_deleted "plantsuite"
 
 echo ""
-remove_component "apps/base/vernemq/" "vernemq"
+remove_component "k8s/base/vernemq/" "vernemq"
 wait_statefulset_deleted "vernemq" "app.kubernetes.io/name=plantsuite-vmq" "plantsuite-vmq"
 wait_namespace_deleted "vernemq"
 
 echo ""
-remove_component "apps/base/rabbitmq/plantsuite-rmq/" "plantsuite-rmq"
+remove_component "k8s/base/rabbitmq/plantsuite-rmq/" "plantsuite-rmq"
 wait_cr_deleted "rabbitmqcluster" "plantsuite-rmq" "rabbitmq"
 wait_statefulset_deleted "rabbitmq" "app.kubernetes.io/name=plantsuite-rmq" "plantsuite-rmq"
-remove_component "apps/base/rabbitmq/" "rabbitmq operator"
+remove_component "k8s/base/rabbitmq/" "rabbitmq operator"
 wait_namespace_deleted "rabbitmq"
 
 echo ""
-remove_component "apps/base/keycloak/plantsuite-kc/" "plantsuite-kc"
+remove_component "k8s/base/keycloak/plantsuite-kc/" "plantsuite-kc"
 wait_cr_deleted "keycloak" "plantsuite-kc" "keycloak"
 wait_cr_deleted "keycloakrealmimport" "plantsuite-kc-realm" "keycloak"
-remove_component "apps/base/keycloak/" "keycloak operator"
+remove_component "k8s/base/keycloak/" "keycloak operator"
 wait_namespace_deleted "keycloak"
 
 echo ""
-remove_component "apps/base/redis/" "redis"
+remove_component "k8s/base/redis/" "redis"
 wait_statefulset_deleted "redis" "app=redis" "plantsuite-redis"
 wait_namespace_deleted "redis"
 
 echo ""
-remove_component "apps/base/postgresql/plantsuite-ppgc/" "plantsuite-ppgc"
+remove_component "k8s/base/postgresql/plantsuite-ppgc/" "plantsuite-ppgc"
 wait_cr_deleted "postgrescluster" "plantsuite-ppgc" "postgresql"
 wait_statefulset_deleted "postgresql" "postgres-operator.crunchydata.com/cluster=plantsuite-ppgc" "plantsuite-ppgc"
-remove_component "apps/base/postgresql/" "postgresql operator"
+remove_component "k8s/base/postgresql/" "postgresql operator"
 wait_namespace_deleted "postgresql"
 
 echo ""
-remove_component "apps/base/mongodb/plantsuite-psmdb/" "plantsuite-psmdb"
+remove_component "k8s/base/mongodb/plantsuite-psmdb/" "plantsuite-psmdb"
 wait_cr_deleted "psmdb" "plantsuite-psmdb" "mongodb"
 wait_statefulset_deleted "mongodb" "app.kubernetes.io/instance=plantsuite-psmdb" "plantsuite-psmdb"
-remove_component "apps/base/mongodb/" "mongodb operator"
+remove_component "k8s/base/mongodb/" "mongodb operator"
 wait_namespace_deleted "mongodb"
 
 echo ""
-remove_component "apps/base/aspire/" "aspire"
+remove_component "k8s/base/aspire/" "aspire"
 wait_namespace_deleted "aspire"
 
 echo ""
-remove_component "apps/base/istio-ingress/" "istio-ingress"
+remove_component "k8s/base/istio-ingress/" "istio-ingress"
 wait_namespace_deleted "istio-ingress"
 
 echo ""
-remove_component "apps/base/istio-system/" "istio-system"
+remove_component "k8s/base/istio-system/" "istio-system"
 wait_namespace_deleted "istio-system"
 
 echo ""
-remove_component "apps/base/cert-manager/issuers/" "cert-manager issuers"
-remove_component "apps/base/cert-manager/" "cert-manager"
+remove_component "k8s/base/cert-manager/issuers/" "cert-manager issuers"
+remove_component "k8s/base/cert-manager/" "cert-manager"
 wait_namespace_deleted "cert-manager"
 
 echo ""
-remove_component "apps/base/metrics-server/" "metrics-server"
+remove_component "k8s/base/metrics-server/" "metrics-server"
 
 echo ""
 klog "Desinstalação concluída com sucesso!"

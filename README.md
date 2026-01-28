@@ -6,9 +6,9 @@ Manifestos [Kustomize](https://kustomize.io/) para instalar, atualizar e remover
 > 📚 Para guias detalhados sobre personalização, observabilidade e outros tópicos, consulte a pasta `docs/`.
 
 ## Camadas
-- **base** (apps/base): HA com recursos enxutos; bom para testes próximos a produção com menos hardware.
-- **minimal** (apps/overlays/minimal): mesmos requests/limits da base, mas 1 réplica; ideal para demos ou labs pequenos.
-- **production** (apps/overlays/production): ponto de partida para produção; ajuste conforme tráfego/SLAs.
+-- **base** (k8s/base): HA com recursos enxutos; bom para testes próximos a produção com menos hardware.
+-- **minimal** (k8s/overlays/minimal): mesmos requests/limits da base, mas 1 réplica; ideal para demos ou labs pequenos.
+-- **production** (k8s/overlays/production): ponto de partida para produção; ajuste conforme tráfego/SLAs.
 
 ## Sizing sugerido para o cluster
 
@@ -28,7 +28,7 @@ Antes de instalar, é necessário **obter o arquivo de licença `license.crt`** 
 
 Solicite ambos ao suporte PlantSuite em [https://support.plantsuite.com](https://support.plantsuite.com). 
 
-O arquivo de licença deve ser colocado em `apps/base/plantsuite/license.crt` e as credenciais (usuário e senha) devem ser inseridas no arquivo `apps/base/plantsuite/dockerconfig.json` e `apps/base/vernemq/dockerconfig.json`.
+O arquivo de licença deve ser colocado em `k8s/base/plantsuite/license.crt` e as credenciais (usuário e senha) devem ser inseridas no arquivo `k8s/base/plantsuite/dockerconfig.json` e `k8s/base/vernemq/dockerconfig.json`.
 
 Além dos arquivos acima, verifique também as ferramentas abaixo instaladas e disponíveis no `PATH`:
 

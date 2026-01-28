@@ -65,9 +65,9 @@ cl_printf() {
 
 # Verifica se o script está sendo executado a partir da raiz do repositório
 assert_repo_root() {
-  if [ ! -d "apps" ] || [ ! -d "apps/base" ] || [ ! -f "README.md" ]; then
+  if [ ! -d "k8s" ] || [ ! -d "k8s/base" ] || [ ! -f "README.md" ]; then
     error "Este script deve ser executado a partir da raiz do repositório."
-    echo "Pastas/arquivos esperados não encontrados: 'apps/', 'apps/base/', 'README.md'." >&2
+    echo "Pastas/arquivos esperados não encontrados: 'k8s/', 'k8s/base/', 'README.md'." >&2
     echo "Exemplo de uso: ./tools/install.sh" >&2
     exit 1
   fi
@@ -99,7 +99,7 @@ wait_with_spinner() {
 update_keycloak_secrets() {
   local secret_name="plantsuite-ppgc-pguser-keycloak"
   local namespace="postgresql"
-  local env_file="apps/base/keycloak/plantsuite-kc/.env.secret"
+  local env_file="k8s/base/keycloak/plantsuite-kc/.env.secret"
   
   # Em modo UPDATE, preserva secrets existentes
   if [ "$UPDATE_MODE" = true ] && [ -f "$env_file" ]; then
@@ -147,7 +147,7 @@ EOF
 
 # Função para obter a senha do Redis e atualizar o .env.secret do VerneMQ
 update_vernemq_redis_password() {
-  local env_file="apps/base/vernemq/.env.secret"
+  local env_file="k8s/base/vernemq/.env.secret"
   
   klog "Obtendo senha do Redis para o VerneMQ..."
   
@@ -157,8 +157,8 @@ update_vernemq_redis_password() {
   redis_password=$(kubectl get secret plantsuite-redis-password -n redis -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
   
   # Se não encontrar no cluster, tenta obter do arquivo local .env.secret usado para gerar o Secret
-  if [ -z "$redis_password" ] && [ -f "apps/base/redis/.env.secret" ]; then
-    redis_password=$(grep -E '^password=' apps/base/redis/.env.secret | head -n1 | cut -d'=' -f2-)
+  if [ -z "$redis_password" ] && [ -f "k8s/base/redis/.env.secret" ]; then
+    redis_password=$(grep -E '^password=' k8s/base/redis/.env.secret | head -n1 | cut -d'=' -f2-)
   fi
   
   if [ -z "$redis_password" ]; then
@@ -247,9 +247,9 @@ set_env_value() {
   awk -v key="$key" -v value="$value" 'BEGIN{updated=0} $0 ~ ("^"key"=") {print key"="value; updated=1; next} {print} END{if(updated==0){print key"="value}}' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
 }
 
-# Função para atualizar apps/base/plantsuite/.env.secret com segredos de MongoDB, RabbitMQ, Keycloak e gerar senha MQTT
+# Função para atualizar k8s/base/plantsuite/.env.secret com segredos de MongoDB, RabbitMQ, Keycloak e gerar senha MQTT
 update_plantsuite_env() {
-  local env_file="apps/base/plantsuite/.env.secret"
+  local env_file="k8s/base/plantsuite/.env.secret"
 
   klog "Atualizando .env.secret do Plantsuite com segredos do cluster..."
 
@@ -292,8 +292,8 @@ update_plantsuite_env() {
   # Redis/Redis connection string
   local redis_pass
   redis_pass=$(kubectl get secret plantsuite-redis-password -n redis -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
-  if [ -z "$redis_pass" ] && [ -f "apps/base/redis/.env.secret" ]; then
-    redis_pass=$(grep -E '^password=' apps/base/redis/.env.secret | head -n1 | cut -d'=' -f2-)
+  if [ -z "$redis_pass" ] && [ -f "k8s/base/redis/.env.secret" ]; then
+    redis_pass=$(grep -E '^password=' k8s/base/redis/.env.secret | head -n1 | cut -d'=' -f2-)
   fi
   if [ -z "$redis_pass" ]; then
     error "Não foi possível obter a senha do Redis para montar a connection string do Redis."
@@ -362,9 +362,9 @@ get_component_path() {
   
   # Se um overlay foi selecionado, verifica se existe o componente no overlay
   if [ -n "$SELECTED_OVERLAY" ] && [ "$SELECTED_OVERLAY" != "base" ]; then
-    # Remove o prefixo "apps/base/" do caminho para obter o caminho relativo
-    local relative_path="${base_path#apps/base/}"
-    local overlay_path="apps/overlays/${SELECTED_OVERLAY}/${relative_path}"
+    # Remove o prefixo "k8s/base/" do caminho para obter o caminho relativo
+    local relative_path="${base_path#k8s/base/}"
+    local overlay_path="k8s/overlays/${SELECTED_OVERLAY}/${relative_path}"
     
     # Verifica se o diretório existe e contém um arquivo kustomization
     if [ -d "$overlay_path" ] && ( [ -f "${overlay_path}kustomization.yaml" ] || [ -f "${overlay_path}kustomization.yml" ] || [ -f "${overlay_path}Kustomization" ] ); then
@@ -803,10 +803,10 @@ cleanup_env_secrets() {
 
   # Arquivos a processar
   local files=(
-    "apps/base/keycloak/plantsuite-kc/.env.secret"
-    "apps/base/plantsuite/.env.secret"
-    "apps/base/redis/.env.secret"
-    "apps/base/vernemq/.env.secret"
+    "k8s/base/keycloak/plantsuite-kc/.env.secret"
+    "k8s/base/plantsuite/.env.secret"
+    "k8s/base/redis/.env.secret"
+    "k8s/base/vernemq/.env.secret"
   )
 
   for file in "${files[@]}"; do
@@ -961,7 +961,7 @@ fi
 # Seleção dinâmica de overlays
 echo ""
 klog "Selecione o overlay para instalação:"
-overlays_dir="apps/overlays"
+overlays_dir="k8s/overlays"
 declare -a AVAILABLE_OVERLAYS
 if [ -d "$overlays_dir" ]; then
   for d in "$overlays_dir"/*/; do
@@ -1123,26 +1123,26 @@ echo ""
 echo ""
 # Componente 1: metrics-server
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 1 " ]]; then
-  apply_component "apps/base/metrics-server/" "metrics-server"
+  apply_component "k8s/base/metrics-server/" "metrics-server"
   wait_deployment_ready "kube-system" "k8s-app=metrics-server" "metrics-server" "metrics-server"
 fi
 
 # Componente 2: cert-manager (+ issuers)
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 2 " ]]; then
   echo ""
-  apply_component "apps/base/cert-manager/" "cert-manager"
+  apply_component "k8s/base/cert-manager/" "cert-manager"
   wait_deployment_ready "cert-manager" "app.kubernetes.io/name=cert-manager" "cert-manager" "cert-manager"
 
   # Aguarda o webhook do cert-manager antes de aplicar os issuers
   wait_cert_manager_webhook_ready
   wait_with_spinner 90 "Aguardando estabilização do cert-manager webhook..."
-  apply_component "apps/base/cert-manager/issuers/" "cert-manager issuers"
+  apply_component "k8s/base/cert-manager/issuers/" "cert-manager issuers"
 fi
 
 # Componente 3: istio-system
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 3 " ]]; then
   echo ""
-  apply_component "apps/base/istio-system/" "istio-system"
+  apply_component "k8s/base/istio-system/" "istio-system"
   wait_deployment_ready "istio-system" "app=istiod" "istiod" "istiod"
   wait_daemonset_ready "istio-system" "app=istio-cni-node" "istio-cni-node" "istio-cni-node"
   wait_daemonset_ready "istio-system" "app=ztunnel" "ztunnel" "ztunnel"
@@ -1152,23 +1152,23 @@ fi
 # Componente 4: istio-ingress
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 4 " ]]; then
   echo ""
-  apply_component "apps/base/istio-ingress/" "istio-ingress"
+  apply_component "k8s/base/istio-ingress/" "istio-ingress"
   wait_deployment_ready "istio-ingress" "app=gateway" "gateway" "istio-ingress gateway"
 fi
 
 # Componente 5: aspire
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 5 " ]]; then
   echo ""
-  apply_component "apps/base/aspire/" "aspire"
+  apply_component "k8s/base/aspire/" "aspire"
   wait_deployment_ready "aspire" "app=aspire-dashboard" "aspire-dashboard" "aspire-dashboard"
 fi
 
 # Componente 6: mongodb (operator + plantsuite-psmdb)
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 6 " ]]; then
   echo ""
-  apply_component "apps/base/mongodb/" "mongodb operator"
+  apply_component "k8s/base/mongodb/" "mongodb operator"
   wait_deployment_ready "mongodb" "app.kubernetes.io/name=percona-server-mongodb-operator" "percona-server-mongodb-operator" "percona-server-mongodb-operator"
-  apply_component "apps/base/mongodb/plantsuite-psmdb/" "plantsuite-psmdb"
+  apply_component "k8s/base/mongodb/plantsuite-psmdb/" "plantsuite-psmdb"
   wait_psmdb_ready "mongodb" "plantsuite-psmdb" "plantsuite-psmdb (CR)"
   wait_statefulset_ready "mongodb" "app.kubernetes.io/instance=plantsuite-psmdb" "plantsuite-psmdb" "plantsuite-psmdb"
 fi
@@ -1176,9 +1176,9 @@ fi
 # Componente 7: postgresql (operator + plantsuite-ppgc)
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 7 " ]]; then
   echo ""
-  apply_component "apps/base/postgresql/" "postgresql operator"
+  apply_component "k8s/base/postgresql/" "postgresql operator"
   wait_deployment_ready "postgresql" "app.kubernetes.io/name=percona-postgresql-operator" "percona-postgresql-operator" "percona-postgresql-operator"
-  apply_component "apps/base/postgresql/plantsuite-ppgc/" "plantsuite-ppgc"
+  apply_component "k8s/base/postgresql/plantsuite-ppgc/" "plantsuite-ppgc"
   wait_postgrescluster_ready "postgresql" "plantsuite-ppgc" "plantsuite-ppgc (CR)"
   wait_statefulset_ready "postgresql" "postgres-operator.crunchydata.com/cluster=plantsuite-ppgc" "plantsuite-ppgc" "plantsuite-ppgc"
 fi
@@ -1186,18 +1186,18 @@ fi
 # Componente 8: redis
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 8 " ]]; then
   echo ""
-  generate_secure_password "apps/base/redis/.env.secret" "password"
-  apply_component "apps/base/redis/" "redis"
+  generate_secure_password "k8s/base/redis/.env.secret" "password"
+  apply_component "k8s/base/redis/" "redis"
   wait_statefulset_ready "redis" "app=redis" "plantsuite-redis" "redis"
 fi
 
 # Componente 9: keycloak (operator + plantsuite-kc + realm)
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 9 " ]]; then
   echo ""
-  apply_component "apps/base/keycloak/" "keycloak operator"
+  apply_component "k8s/base/keycloak/" "keycloak operator"
   wait_deployment_ready "keycloak" "app.kubernetes.io/name=keycloak-operator" "keycloak-operator" "keycloak-operator"
   update_keycloak_secrets
-  apply_component "apps/base/keycloak/plantsuite-kc/" "plantsuite-kc"
+  apply_component "k8s/base/keycloak/plantsuite-kc/" "plantsuite-kc"
   wait_keycloak_ready "keycloak" "plantsuite-kc" "plantsuite-kc"
   wait_keycloak_realm_ready "keycloak" "plantsuite-kc-realm" "plantsuite-kc-realm"
 fi
@@ -1205,9 +1205,9 @@ fi
 # Componente 10: rabbitmq (operator + plantsuite-rmq)
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 10 " ]]; then
   echo ""
-  apply_component "apps/base/rabbitmq/" "rabbitmq operator"
+  apply_component "k8s/base/rabbitmq/" "rabbitmq operator"
   wait_deployment_ready "rabbitmq" "app.kubernetes.io/name=rabbitmq-cluster-operator" "rabbitmq-cluster-operator" "rabbitmq-cluster-operator"
-  apply_component "apps/base/rabbitmq/plantsuite-rmq/" "plantsuite-rmq"
+  apply_component "k8s/base/rabbitmq/plantsuite-rmq/" "plantsuite-rmq"
   wait_rabbitmq_ready "rabbitmq" "plantsuite-rmq" "plantsuite-rmq (CR)"
   wait_statefulset_ready "rabbitmq" "app.kubernetes.io/name=plantsuite-rmq" "plantsuite-rmq-server" "plantsuite-rmq"
 fi
@@ -1216,7 +1216,7 @@ fi
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 11 " ]]; then
   echo ""
   update_vernemq_redis_password
-  apply_component "apps/base/vernemq/" "vernemq"
+  apply_component "k8s/base/vernemq/" "vernemq"
   wait_statefulset_ready "vernemq" "app.kubernetes.io/name=plantsuite-vmq" "plantsuite-vmq" "plantsuite-vmq"
 fi
 
@@ -1224,7 +1224,7 @@ fi
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 12 " ]]; then
   echo ""
   update_plantsuite_env
-  apply_component "apps/base/plantsuite/" "plantsuite"
+  apply_component "k8s/base/plantsuite/" "plantsuite"
   if [ "$UPDATE_MODE" = true ]; then
     klog "Reiniciando componentes do Plantsuite..."
     # Reiniciar deployments
