@@ -50,13 +50,24 @@ spec:
         enabled: true
         publicClient: true
         standardFlowEnabled: true
-        implicitFlowEnabled: true
+        implicitFlowEnabled: false
         directAccessGrantsEnabled: true
         rootUrl: "https://portal.plantsuite.local"
         redirectUris:
+          - "https://alarms.plantsuite.local/*"
+          - "https://dashboards.plantsuite.local/*"
+          - "https://devices.plantsuite.local/*"
+          - "https://entities.plantsuite.local/*"
+          - "https://notifications.plantsuite.local/*"
           - "https://portal.plantsuite.local/*"
+          - "https://queries.plantsuite.local/*"
+          - "https://spc.plantsuite.local/*"
+          - "https://tenants.plantsuite.local/*"
+          - "https://timeseries.plantsuite.local/*"
         webOrigins:
           - "*"
+        attributes:
+          pkce.code.challenge.method: S256
         defaultClientScopes:
           - basic
           - profile
