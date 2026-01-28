@@ -403,15 +403,12 @@ spec:
 #      customTLSSecret:
 #        name: keycloakdb-pgbouncer.tls
 #
-      config:
-        global:
-          # configuração recomendada para keycloak
-          # https://www.keycloak.org/high-availability/single-cluster/concepts-database-connections
-          # https://www.keycloak.org/high-availability/single-cluster/deploy-keycloak
-          pool_mode: session
-          default_pool_size: "20"
-          min_pool_size: "20"
-          max_db_connections: "200"
+#      config:
+#        global:
+#          pool_mode: transaction
+#          default_pool_size: "20"
+#          min_pool_size: "20"
+#          max_db_connections: "200"
 
   backups:
 #    trackLatestRestorableTime: true

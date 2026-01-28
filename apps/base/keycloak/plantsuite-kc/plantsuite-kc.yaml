@@ -14,9 +14,12 @@ spec:
   db:
     vendor: postgres
     url: jdbc:postgresql://plantsuite-ppgc-pgbouncer.postgresql.svc.cluster.local:5432/keycloak
-    poolInitialSize: 20
-    poolMinSize: 20
-    poolMaxSize: 60
+    # configuração recomendada para keycloak
+    # https://www.keycloak.org/high-availability/single-cluster/concepts-database-connections
+    # https://www.keycloak.org/high-availability/single-cluster/deploy-keycloak
+    poolInitialSize: 10
+    poolMinSize: 10
+    poolMaxSize: 10
     usernameSecret:
       key: db_username
       name: keycloak
