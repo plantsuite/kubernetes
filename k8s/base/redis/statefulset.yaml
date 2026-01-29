@@ -29,11 +29,11 @@ spec:
               mountPath: /shared
           resources:
             requests:
-              cpu: 10m
-              memory: 16Mi
+              cpu: 100m
+              memory: 128Mi
             limits:
-              cpu: 10m
-              memory: 16Mi
+              cpu: 100m
+              memory: 128Mi
         - name: init-config
           image: busybox:1.37.0
           command: ["sh", "-c"]
@@ -76,11 +76,11 @@ spec:
                   resource: limits.memory
           resources:
             requests:
-              cpu: 10m
-              memory: 32Mi
+              cpu: 100m
+              memory: 128Mi
             limits:
-              cpu: 10m
-              memory: 32Mi
+              cpu: 100m
+              memory: 128Mi
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
