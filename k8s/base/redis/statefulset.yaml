@@ -15,7 +15,8 @@ spec:
           args:
             - |
                 SERVICENAME=$(echo ${HOSTNAME} | rev | cut -d'-' -f2- | rev)
-                REPLICAS=$(kubectl get statefulset ${SERVICENAME} -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "6")
+                NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+                REPLICAS=$(kubectl get statefulset ${SERVICENAME} -n ${NAMESPACE} -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "6")
                 echo "REPLICAS=${REPLICAS}" > /shared/replicas.env
                 echo "Detected ${REPLICAS} replicas from StatefulSet"
           env:

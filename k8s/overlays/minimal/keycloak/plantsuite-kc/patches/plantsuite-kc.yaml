@@ -4,8 +4,3 @@ metadata:
   name: plantsuite-kc
 spec:
   instances: 1
-  db:
-    # Ajustes para ambiente minimal, compatíveis com pgBouncer
-    poolInitialSize: 5
-    poolMinSize: 5
-    poolMaxSize: 20
