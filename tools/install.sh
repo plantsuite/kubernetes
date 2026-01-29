@@ -153,8 +153,8 @@ update_vernemq_redis_password() {
   
   # Obter senha do Redis
   local redis_password
-  # Primeiro tenta obter do Secret no cluster (nome gerado pelo kustomize: plantsuite-redis-password)
-  redis_password=$(kubectl get secret plantsuite-redis-password -n redis -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
+  # Primeiro tenta obter do Secret no cluster (nome gerado pelo kustomize: plantsuite-redis-env)
+  redis_password=$(kubectl get secret plantsuite-redis-env -n redis -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
   
   # Se não encontrar no cluster, tenta obter do arquivo local .env.secret usado para gerar o Secret
   if [ -z "$redis_password" ] && [ -f "k8s/base/redis/.env.secret" ]; then
@@ -162,8 +162,15 @@ update_vernemq_redis_password() {
   fi
   
   if [ -z "$redis_password" ]; then
-    error "Não foi possível obter a senha do Redis."
-    exit 1
+    klog "Senha do Redis não encontrada, gerando uma nova..."
+    local password=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
+    if [ -z "$password" ]; then
+      error "Não foi possível gerar senha para o Redis."
+      exit 1
+    fi
+    echo "password=$password" > "k8s/base/redis/.env.secret"
+    redis_password="$password"
+    klog "Nova senha do Redis gerada e salva."
   fi
   
   # Atualizar .env.secret do VerneMQ
@@ -291,7 +298,7 @@ update_plantsuite_env() {
 
   # Redis/Redis connection string
   local redis_pass
-  redis_pass=$(kubectl get secret plantsuite-redis-password -n redis -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
+  redis_pass=$(kubectl get secret plantsuite-redis-env -n redis -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
   if [ -z "$redis_pass" ] && [ -f "k8s/base/redis/.env.secret" ]; then
     redis_pass=$(grep -E '^password=' k8s/base/redis/.env.secret | head -n1 | cut -d'=' -f2-)
   fi
