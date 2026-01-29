@@ -6,9 +6,3 @@ spec:
   proxy:
     pgBouncer:
       replicas: 1
-      config:
-        global:
-          pool_mode: session
-          default_pool_size: "10"
-          min_pool_size: "5"
-          max_db_connections: "30"
