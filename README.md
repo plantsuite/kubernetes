@@ -1,11 +1,13 @@
 # PlantSuite Kubernetes
 
-[English version](README.en.md) | [Versão em português](README.md)
+<small>[English version](README.en.md) | [Versão em português](README.md)</small>
 
 ## Visão geral
 
+
 Manifestos [Kustomize](https://kustomize.io/) para instalar, atualizar e remover o stack [PlantSuite](https://www.plantsuite.com) em Kubernetes, com overlays para diferentes cenários (base, minimal, produção). Inclui scripts automatizados, configuração de dependências, certificados e instruções para acesso seguro aos serviços.
-> 📚 Para guias detalhados sobre personalização, observabilidade e outros tópicos, consulte a pasta `docs/`.
+
+> 📚 Para guias detalhados sobre personalização, observabilidade e outros tópicos, consulte a [pasta docs](docs/).
 
 ## Camadas
 -- **base** (k8s/base): HA com recursos enxutos; bom para testes próximos a produção com menos hardware.

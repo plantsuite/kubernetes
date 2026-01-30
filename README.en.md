@@ -2,8 +2,10 @@
 
 ## Overview
 
+
 [Kustomize](https://kustomize.io/) manifests to install, update, and remove the [PlantSuite](https://www.plantsuite.com) stack on Kubernetes, with overlays for different scenarios (base, minimal, production). Includes automated scripts, dependency configuration, certificates, and instructions for secure service access.
-> 📚 For detailed guides on customization, observability, and other topics, see the `docs/` folder.
+
+> 📚 For detailed guides on customization, observability, and other topics, see the [docs folder](docs/).
 
 ## Layers
 -- **base** (k8s/base): HA with lean resources; good for production-like testing with less hardware.
