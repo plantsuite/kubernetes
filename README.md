@@ -1,6 +1,5 @@
-# PlantSuite Kubernetes
 
-<small>[English version](README.en.md) | [Versão em português](README.md)</small>
+# PlantSuite Kubernetes  [EN](README.en.md) | [PT](README.md)
 
 ## Visão geral
 
