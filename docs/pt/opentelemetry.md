@@ -10,7 +10,6 @@ O objetivo é mostrar como integrar o PlantSuite com ferramentas compatíveis co
 
 O Aspire Dashboard pode receber logs, traces e métricas enviados via OpenTelemetry, permitindo visualização e análise em tempo real dos serviços do PlantSuite.
 
-
 ### Exemplo de configuração (appsettings.json)
 
 Abaixo um exemplo de configuração do PlantSuite, enviando dados para o Aspire Dashboard via OpenTelemetry:
