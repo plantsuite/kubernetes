@@ -1,7 +1,8 @@
-# PlantSuite Kubernetes (English)
+# PlantSuite Kubernetes
+
+[Português (pt)](README.md) | [English (en)](README.en.md)
 
 ## Overview
-
 
 [Kustomize](https://kustomize.io/) manifests to install, update, and remove the [PlantSuite](https://www.plantsuite.com) stack on Kubernetes, with overlays for different scenarios (base, minimal, production). Includes automated scripts, dependency configuration, certificates, and instructions for secure service access.
 
