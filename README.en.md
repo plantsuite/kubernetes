@@ -9,9 +9,9 @@
 > 📚 For detailed guides on customization, observability, and other topics, see the [docs folder](docs/).
 
 ## Layers
--- **base** (k8s/base): HA with lean resources; good for production-like testing with less hardware.
--- **minimal** (k8s/overlays/minimal): same requests/limits as base, but 1 replica; ideal for demos or small labs.
--- **production** (k8s/overlays/production): starting point for production; adjust as needed for traffic/SLAs.
+- **base** (k8s/base): HA with lean resources; good for production-like testing with less hardware.
+- **minimal** (k8s/overlays/minimal): same requests/limits as base, but 1 replica; ideal for demos or small labs.
+- **production** (k8s/overlays/production): starting point for production; adjust as needed for traffic/SLAs.
 
 ## Suggested cluster sizing
 
