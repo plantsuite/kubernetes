@@ -101,30 +101,42 @@ update_keycloak_secrets() {
   local namespace="postgresql"
   local env_file="k8s/base/keycloak/plantsuite-kc/.env.secret"
   
-  # Em modo UPDATE, preserva secrets existentes
-  if [ "$UPDATE_MODE" = true ] && [ -f "$env_file" ]; then
+  # Verificar se os valores já existem no arquivo (modo UPDATE inteligente)
+  local existing_db_username=""
+  local existing_db_password=""
+  local existing_auth_secret=""
+  local existing_tenants_secret=""
+  if [ -f "$env_file" ]; then
+    existing_db_username=$(grep "^db_username=" "$env_file" 2>/dev/null | cut -d'=' -f2)
+    existing_db_password=$(grep "^db_password=" "$env_file" 2>/dev/null | cut -d'=' -f2)
+    existing_auth_secret=$(grep "^client-secret_ps-auth-introspection=" "$env_file" 2>/dev/null | cut -d'=' -f2)
+    existing_tenants_secret=$(grep "^client-secret_ps-tenants-admin=" "$env_file" 2>/dev/null | cut -d'=' -f2)
+  fi
+  
+  # Se estamos em modo UPDATE e todos os valores existem e não estão vazios, preservar
+  if [ "$UPDATE_MODE" = true ] && [ -n "$existing_db_username" ] && [ -n "$existing_db_password" ] && [ -n "$existing_auth_secret" ] && [ -n "$existing_tenants_secret" ]; then
     klog "Modo update: preservando secrets existentes do Keycloak"
     return 0
   fi
   
   klog "Obtendo credenciais do banco de dados para o Keycloak..."
   
-  # Obtém username e password do secret
-  local db_username=$(kubectl get secret "$secret_name" -n "$namespace" -o jsonpath='{.data.user}' 2>/dev/null | base64 -d)
-  local db_password=$(kubectl get secret "$secret_name" -n "$namespace" -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
-  
+  # Obtém username e password do secret (usar existentes se disponíveis)
+  local db_username="$existing_db_username"
+  local db_password="$existing_db_password"
   if [ -z "$db_username" ] || [ -z "$db_password" ]; then
-    error "Não foi possível obter as credenciais do secret $secret_name no namespace $namespace."
-    exit 1
+    db_username=$(kubectl get secret "$secret_name" -n "$namespace" -o jsonpath='{.data.user}' 2>/dev/null | base64 -d)
+    db_password=$(kubectl get secret "$secret_name" -n "$namespace" -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
+    
+    if [ -z "$db_username" ] || [ -z "$db_password" ]; then
+      error "Não foi possível obter as credenciais do secret $secret_name no namespace $namespace."
+      exit 1
+    fi
   fi
   
   # Lê valores existentes dos client secrets (se existirem)
-  local auth_introspection_secret=""
-  local tenants_admin_secret=""
-  if [ -f "$env_file" ]; then
-    auth_introspection_secret=$(grep "^client-secret_ps-auth-introspection=" "$env_file" 2>/dev/null | cut -d'=' -f2)
-    tenants_admin_secret=$(grep "^client-secret_ps-tenants-admin=" "$env_file" 2>/dev/null | cut -d'=' -f2)
-  fi
+  local auth_introspection_secret="$existing_auth_secret"
+  local tenants_admin_secret="$existing_tenants_secret"
   
   # Gera client secrets se não existirem
   if [ -z "$auth_introspection_secret" ]; then
@@ -145,32 +157,64 @@ EOF
   klog "Credenciais do banco de dados atualizadas em $env_file"
 }
 
-# Função para obter a senha do Redis e atualizar o .env.secret do VerneMQ
-update_vernemq_redis_password() {
+# Função para obter as senhas do Redis e PostgreSQL e atualizar o .env.secret do VerneMQ
+update_vernemq_secrets() {
   local env_file="k8s/base/vernemq/.env.secret"
+  
+  # Verificar se as senhas já existem no arquivo (modo UPDATE inteligente)
+  local existing_redis_password=""
+  local existing_postgres_password=""
+  if [ -f "$env_file" ]; then
+    existing_redis_password=$(grep "^DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=" "$env_file" 2>/dev/null | cut -d'=' -f2-)
+    existing_postgres_password=$(grep "^DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__PASSWORD=" "$env_file" 2>/dev/null | cut -d'=' -f2-)
+  fi
+  
+  # Se estamos em modo UPDATE e ambas as senhas existem e não estão vazias, preservar
+  if [ "$UPDATE_MODE" = true ] && [ -n "$existing_redis_password" ] && [ -n "$existing_postgres_password" ]; then
+    klog "Modo update: preservando secrets existentes do VerneMQ"
+    return 0
+  fi
   
   klog "Obtendo senha do Redis para o VerneMQ..."
   
-  # Obter senha do Redis
-  local redis_password
-  # Primeiro tenta obter do Secret no cluster (nome gerado pelo kustomize: plantsuite-redis-env)
-  redis_password=$(kubectl get secret plantsuite-redis-env -n redis -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
-  
-  # Se não encontrar no cluster, tenta obter do arquivo local .env.secret usado para gerar o Secret
-  if [ -z "$redis_password" ] && [ -f "k8s/base/redis/.env.secret" ]; then
-    redis_password=$(grep -E '^password=' k8s/base/redis/.env.secret | head -n1 | cut -d'=' -f2-)
+  # Obter senha do Redis (usar existente se disponível)
+  local redis_password="$existing_redis_password"
+  if [ -z "$redis_password" ]; then
+    # Primeiro tenta obter do Secret no cluster (nome gerado pelo kustomize: plantsuite-redis-env)
+    redis_password=$(kubectl get secret plantsuite-redis-env -n redis -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
+    
+    # Se não encontrar no cluster, tenta obter do arquivo local .env.secret usado para gerar o Secret
+    if [ -z "$redis_password" ] && [ -f "k8s/base/redis/.env.secret" ]; then
+      redis_password=$(grep -E '^password=' k8s/base/redis/.env.secret | head -n1 | cut -d'=' -f2-)
+    fi
+    
+    if [ -z "$redis_password" ]; then
+      klog "Senha do Redis não encontrada, gerando uma nova..."
+      local password=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
+      if [ -z "$password" ]; then
+        error "Não foi possível gerar senha para o Redis."
+        exit 1
+      fi
+      echo "password=$password" > "k8s/base/redis/.env.secret"
+      redis_password="$password"
+      klog "Nova senha do Redis gerada e salva."
+    fi
   fi
   
-  if [ -z "$redis_password" ]; then
-    klog "Senha do Redis não encontrada, gerando uma nova..."
-    local password=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
-    if [ -z "$password" ]; then
-      error "Não foi possível gerar senha para o Redis."
+  klog "Obtendo senha do PostgreSQL para o VerneMQ..."
+  
+  # Obter senha do PostgreSQL (usar existente se disponível)
+  local postgres_password="$existing_postgres_password"
+  if [ -z "$postgres_password" ]; then
+    # Obter senha do PostgreSQL
+    local secret_name="plantsuite-ppgc-pguser-vernemq"
+    local namespace="postgresql"
+    postgres_password=$(kubectl get secret "$secret_name" -n "$namespace" -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
+    
+    if [ -z "$postgres_password" ]; then
+      error "Não foi possível obter a senha do PostgreSQL do secret $secret_name no namespace $namespace."
       exit 1
     fi
-    echo "password=$password" > "k8s/base/redis/.env.secret"
-    redis_password="$password"
-    klog "Nova senha do Redis gerada e salva."
   fi
   
   # Atualizar .env.secret do VerneMQ
@@ -179,11 +223,18 @@ update_vernemq_redis_password() {
     exit 1
   fi
   
-  # Usar sed para atualizar a senha do Redis (Redis)
-  # Use portable in-place sed to support GNU sed (Linux) and BSD sed (macOS)
-  sed_inplace "s|^DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=.*|DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=${redis_password}|" "$env_file"
+  # Verificar se a linha do Redis existe, se não, adicioná-la ou atualizar
+  if ! grep -q "^DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=" "$env_file"; then
+    echo "DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=${redis_password}" >> "$env_file"
+  else
+    # Usar sed para atualizar a senha do Redis
+    sed_inplace "s|^DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=.*|DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=${redis_password}|" "$env_file"
+  fi
   
-  klog "Senha do Redis atualizada no VerneMQ com sucesso."
+  # Usar sed para atualizar a senha do PostgreSQL
+  sed_inplace "s|^DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__PASSWORD=.*|DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__PASSWORD=${postgres_password}|" "$env_file"
+  
+  klog "Senhas do Redis e PostgreSQL atualizadas no VerneMQ com sucesso."
 }
 
  # Helper sed portátil para edição in-place
@@ -219,21 +270,31 @@ generate_secure_password() {
   local key="$2"
   local length="${3:-32}"  # Tamanho padrão de 32 caracteres
   
-  # Em modo UPDATE, preserva senha existente
-  if [ "$UPDATE_MODE" = true ] && [ -f "$env_file" ]; then
+  # Verificar se a senha já existe no arquivo (modo UPDATE inteligente)
+  local existing_password=""
+  if [ -f "$env_file" ]; then
+    existing_password=$(grep "^${key}=" "$env_file" 2>/dev/null | cut -d'=' -f2)
+  fi
+  
+  # Se estamos em modo UPDATE e a senha existe e não está vazia, preservar
+  if [ "$UPDATE_MODE" = true ] && [ -n "$existing_password" ]; then
     klog "Modo update: preservando senha existente em $env_file"
     return 0
   fi
   
   klog "Gerando senha segura..."
   
-  # Gera senha usando caracteres alfanuméricos (compatível com Redis/Redis e maioria dos sistemas)
-  # Evita caracteres especiais que podem causar problemas de escape
-  local password=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$length")
-  
+  # Usa senha existente se disponível, senão gera nova
+  local password="$existing_password"
   if [ -z "$password" ]; then
-    error "Não foi possível gerar senha."
-    exit 1
+    # Gera senha usando caracteres alfanuméricos (compatível com Redis/Redis e maioria dos sistemas)
+    # Evita caracteres especiais que podem causar problemas de escape
+    password=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$length")
+    
+    if [ -z "$password" ]; then
+      error "Não foi possível gerar senha."
+      exit 1
+    fi
   fi
   
   # Atualiza o arquivo .env.secret
@@ -1222,7 +1283,7 @@ fi
 # Componente 11: vernemq
 if [[ " ${SELECTED_COMPONENTS[*]} " =~ " 11 " ]]; then
   echo ""
-  update_vernemq_redis_password
+  update_vernemq_secrets
   apply_component "k8s/base/vernemq/" "vernemq"
   wait_statefulset_ready "vernemq" "app.kubernetes.io/name=plantsuite-vmq" "plantsuite-vmq" "plantsuite-vmq"
 fi

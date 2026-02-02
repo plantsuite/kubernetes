@@ -2,3 +2,11 @@ namespace: postgresql
 
 resources:
   - plantsuite-ppgc.yaml
+
+configMapGenerator:
+  - name: plantsuite-ppgc-init-sql
+    files:
+      - init.sql
+
+generatorOptions:
+  disableNameSuffixHash: true

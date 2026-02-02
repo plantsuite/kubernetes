@@ -86,9 +86,9 @@ spec:
       databases:
         - vernemq
 
-#  databaseInitSQL:
-#    key: init.sql
-#    name: plantsuite-ppgc-init-sql
+  databaseInitSQL:
+    key: init.sql
+    name: plantsuite-ppgc-init-sql
 
 #  pause: true
 #  unmanaged: true

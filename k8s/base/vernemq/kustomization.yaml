@@ -14,9 +14,9 @@ secretGenerator:
     type: kubernetes.io/dockerconfigjson
 
 configMapGenerator:
-  - name: vernemq-auth-redis
+  - name: vernemq-auth
     files:
-      - mountpoint-modifier-redis.lua
+      - postgres_cockroach_commons.lua
 
 generatorOptions:
   disableNameSuffixHash: true

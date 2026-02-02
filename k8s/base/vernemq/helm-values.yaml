@@ -33,22 +33,26 @@ envFrom:
 additionalEnv:
   - name: DOCKER_VERNEMQ_ACCEPT_EULA
     value: "yes"
-  - name: DOCKER_VERNEMQ_LISTENER__WS__LOCALHOST
-    value: "127.0.0.1:8080"
   - name: DOCKER_VERNEMQ_ALLOW_ANONYMOUS
     value: "off"
-  - name: DOCKER_VERNEMQ_PLUGINS__VMQ_DIVERSITY
-    value: "on"
   - name: DOCKER_VERNEMQ_PLUGINS__VMQ_PASSWD
     value: "off"
   - name: DOCKER_VERNEMQ_PLUGINS__VMQ_ACL
     value: "off"
-  - name: DOCKER_VERNEMQ_VMQ_DIVERSITY__AUTH_REDIS__ENABLED
+  - name: DOCKER_VERNEMQ_PLUGINS__VMQ_DIVERSITY
     value: "on"
-  - name: DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PORT
-    value: "6379"
-  - name: DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__DATABASE
-    value: "0"
+  - name: DOCKER_VERNEMQ_VMQ_DIVERSITY__AUTH_POSTGRES__ENABLED
+    value: "on"
+  - name: DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__PORT
+    value: "5432"
+  - name: DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__SSL
+    value: "on"
+  - name: DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__SSL__VERIFY
+    value: "verify_none"
+  - name: DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__DATABASE
+    value: "vernemq"
+  - name: DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__PASSWORD_HASH_METHOD
+    value: "crypt"
   - name: DOCKER_VERNEMQ_SHARED_SUBSCRIPTION_POLICY
     value: "prefer_local"
   - name: DOCKER_VERNEMQ_LEVELDB__MAXIMUM_MEMORY__PERCENT
@@ -80,14 +84,14 @@ service:
     nodePort: 38888
 
 extraVolumeMounts:
-  - name: vernemq-auth-redis
-    mountPath: vernemq/share/lua/auth/redis.lua
-    subPath: "mountpoint-modifier-redis.lua"
+  - name: vernemq-auth
+    mountPath: vernemq/share/lua/auth/postgres_cockroach_commons.lua
+    subPath: "postgres_cockroach_commons.lua"
 
 extraVolumes:
-  - name: vernemq-auth-redis
+  - name: vernemq-auth
     configMap:
-      name: vernemq-auth-redis
+      name: vernemq-auth
 
 pdb:
   enabled: true
