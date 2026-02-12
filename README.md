@@ -11,9 +11,9 @@ Manifestos [Kustomize](https://kustomize.io/) para instalar, atualizar e remover
 > 📚 Para guias detalhados sobre personalização, observabilidade e outros tópicos, consulte a [pasta docs](docs/).
 
 ## Camadas
--- **base** (k8s/base): HA com recursos enxutos; bom para testes próximos a produção com menos hardware.
--- **minimal** (k8s/overlays/minimal): mesmos requests/limits da base, mas 1 réplica; ideal para demos ou labs pequenos.
--- **production** (k8s/overlays/production): ponto de partida para produção; ajuste conforme tráfego/SLAs.
+- **base** (k8s/base): HA com recursos enxutos; bom para testes próximos a produção com menos hardware.
+- **minimal** (k8s/overlays/minimal): mesmos requests/limits da base, mas 1 réplica; ideal para demos ou labs pequenos.
+- **production** (k8s/overlays/production): ponto de partida para produção; ajuste conforme tráfego/SLAs.
 
 ## Sizing sugerido para o cluster
 
