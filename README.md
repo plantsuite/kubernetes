@@ -6,6 +6,8 @@
 
 Manifestos [Kustomize](https://kustomize.io/) para instalar, atualizar e remover o stack [PlantSuite](https://www.plantsuite.com) em Kubernetes, com overlays para diferentes cenários (base, minimal, produção). Inclui scripts automatizados, configuração de dependências, certificados e instruções para acesso seguro aos serviços.
 
+> **Importante**: Estes manifestos servem como **template de referência**. Você provavelmente precisará ajustá-los conforme as necessidades específicas do seu ambiente, como: tamanho de PVCs, limites de recursos, configurações de rede, estratégias de backup, políticas de segurança e integrações com sistemas existentes.
+
 > 📚 Para guias detalhados sobre personalização, observabilidade e outros tópicos, consulte a [pasta docs](docs/).
 
 ## Camadas
@@ -24,6 +26,25 @@ Manifestos [Kustomize](https://kustomize.io/) para instalar, atualizar e remover
 Valores em vCPU/RAM/Disco são por nó; colunas em negrito indicam o somatório por cluster. Recomendações mínimas; ajuste CPU/Mem/PVCs conforme tráfego, dados e SLOs observados.
 
 ## Instalação e Desinstalação
+
+### Componentes Instalados
+
+O stack PlantSuite é composto pelos seguintes componentes, organizados por categoria:
+
+| Categoria | Componente | Descrição |
+|-----------|------------|-----------|
+| **Bancos de Dados** | MongoDB | Banco de dados NoSQL para dados não-estruturados e timeseries |
+| | PostgreSQL | Banco de dados relacional para dados transacionais |
+| | Redis | Armazenamento em memória para cache e filas |
+| **Mensageria** | RabbitMQ | Message broker para comunicação assíncrona entre serviços |
+| | VerneMQ | Broker MQTT para comunicação com dispositivos IoT |
+| **Infraestrutura** | Istio | Service mesh para gerenciamento de tráfego, segurança e observabilidade |
+| | Cert-Manager | Gerenciamento automático de certificados SSL/TLS |
+| | Metrics Server | Coleta de métricas de recursos do cluster Kubernetes |
+| **Autenticação** | Keycloak | Gerenciamento de identidade e controle de acesso (IAM) |
+| **Observabilidade** | Aspire Dashboard | Dashboard de observabilidade distribuída para .NET |
+| **Aplicações** | PlantSuite Portal | Interface web principal do PlantSuite |
+| | PlantSuite APIs | Microserviços (Devices, Entities, Queries, Tenants, Dashboards, Notifications, Alarms, SPC, Timeseries, Workflows) |
 
 ### Pré-requisitos
 

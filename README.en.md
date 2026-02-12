@@ -6,6 +6,8 @@
 
 [Kustomize](https://kustomize.io/) manifests to install, update, and remove the [PlantSuite](https://www.plantsuite.com) stack on Kubernetes, with overlays for different scenarios (base, minimal, production). Includes automated scripts, dependency configuration, certificates, and instructions for secure service access.
 
+> **Important**: These manifests serve as a **reference template**. You will likely need to adjust them according to your environment's specific needs, such as: PVC sizes, resource limits, network configurations, backup strategies, security policies, and integrations with existing systems.
+
 > 📚 For detailed guides on customization, observability, and other topics, see the [docs folder](docs/).
 
 ## Layers
@@ -24,6 +26,25 @@
 Values in vCPU/RAM/Disk are per node; bold columns indicate cluster totals. These are minimum recommendations; adjust CPU/Mem/PVCs as needed for observed traffic, data, and SLOs.
 
 ## Installation and Uninstallation
+
+### Installed Components
+
+The PlantSuite stack consists of the following components, organized by category:
+
+| Category | Component | Description |
+|----------|-----------|-------------|
+| **Databases** | MongoDB | NoSQL database for unstructured data and timeseries |
+| | PostgreSQL | Relational database for transactional data |
+| | Redis | In-memory storage for cache and queues |
+| **Messaging** | RabbitMQ | Message broker for asynchronous communication between services |
+| | VerneMQ | MQTT broker for IoT device communication |
+| **Infrastructure** | Istio | Service mesh for traffic management, security, and observability |
+| | Cert-Manager | Automatic SSL/TLS certificate management |
+| | Metrics Server | Kubernetes cluster resource metrics collection |
+| **Authentication** | Keycloak | Identity and access management (IAM) |
+| **Observability** | Aspire Dashboard | Distributed observability dashboard for .NET |
+| **Applications** | PlantSuite Portal | Main PlantSuite web interface |
+| | PlantSuite APIs | Microservices (Devices, Entities, Queries, Tenants, Dashboards, Notifications, Alarms, SPC, Timeseries, Workflows) |
 
 ### Prerequisites
 

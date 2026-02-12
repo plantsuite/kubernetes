@@ -36,4 +36,4 @@ Abaixo um exemplo de configuração do PlantSuite, enviando dados para o Aspire 
 - Os blocos `Metrics`, `Tracing` e `Logging` ativam o envio de métricas, traces e logs, respectivamente.
 - O parâmetro `SamplerProbability` define a fração de traces coletados (exemplo: 0.01 = 1%).
 
-Consulte a documentação oficial do [OpenTelemetry](https://opentelemetry.io/docs/) e do [Aspire Dashboard](https://learn.microsoft.com/aspire/overview/dashboard/) para mais detalhes e opções avançadas.
+Consulte a documentação oficial do [OpenTelemetry](https://opentelemetry.io/docs/) e do [Aspire Dashboard](https://learn.microsoft.com/dotnet/aspire/fundamentals/dashboard/overview) para mais detalhes e opções avançadas.

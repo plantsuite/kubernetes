@@ -54,6 +54,6 @@ Em caso de problemas com o seu ambiente consulte o guia [Known Issues](https://k
 ## Referências
 - [Kind - Site Oficial](https://kind.sigs.k8s.io/)
 - [Kind - Documentação](https://kind.sigs.k8s.io/docs/)
-- [cloud-provider-kind](https://github.com/aojea/cloud-provider-kind)
+- [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind)
 - [Docker](https://docs.docker.com/get-docker/)
 - [Podman](https://podman.io/)
