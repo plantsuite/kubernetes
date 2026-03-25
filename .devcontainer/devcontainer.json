@@ -10,6 +10,9 @@
 			"helm": "3",
 			"minikube": "none"
 		},
+		"ghcr.io/wcgomes/devcontainer-features/the-agency:0": {
+			"use-agent-zero": true
+		},
 		"./local-features/copy-kube-config": {}
 	},
 	"remoteEnv": {
