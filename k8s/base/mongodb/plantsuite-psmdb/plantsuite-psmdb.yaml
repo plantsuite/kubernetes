@@ -33,7 +33,7 @@ spec:
     sse: plantsuite-psmdb-sse
 
   pmm:
-    enabled: true
+    enabled: false
     image: percona/pmm-client:3.6.0
     serverHost: monitoring-service.pmm.svc.cluster.local
     mongodParams: --query-source=mongolog
