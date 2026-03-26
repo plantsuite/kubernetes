@@ -18,5 +18,5 @@ patches:
             cpu: 200m
             memory: 384Mi
           limits:
-            cpu: 200m
+            cpu: 500m
             memory: 384Mi
