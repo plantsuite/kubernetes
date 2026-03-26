@@ -7,7 +7,7 @@ labels:
 
 resources:
   - deployment.yaml
-  - httproute.yaml
+  - virtualservice.yaml
   - service.yaml
 
 configMapGenerator:
