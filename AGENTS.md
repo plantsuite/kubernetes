@@ -1,11 +1,10 @@
 <!-- the-agency-feature:workspace-references:start -->
 # Canonical Agent Guide (Mandatory)
 
-Use ~/.the-agency/AGENT-ZERO.md as the global AGENTS baseline before execution.
+Use ~/.the-agency/AGENTS.md as the global AGENTS baseline before execution.
 
-# Agent Routing Rules (Mandatory)
+# How to Choose the Right Specialist Agent (Mandatory)
 
-Before selecting a specialist agent, first classify the request by division.
-Then use ~/.the-agency/AGENT_ROUTING.md as the routing reference to choose the primary and fallback agent.
+Before starting any task, read ~/.the-agency/AGENT_ROUTING.md to understand how to classify divisions and choose the ideal specialist agent for the job.
 
 <!-- the-agency-feature:workspace-references:end -->
