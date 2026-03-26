@@ -14,8 +14,8 @@ spec:
   rabbitmq:
     additionalConfig: |
       cluster_partition_handling = autoheal
-      net_ticktime = 30
-      disk_free_limit.relative = 1.0
+      net_ticktime = 60
+      disk_free_limit.relative = 1.5
       collect_statistics_interval = 10000
       default_queue_type = quorum
   persistence:

@@ -5557,6 +5557,17 @@ spec:
                   RabbitmqCluster's generation, which is updated on mutation by the API Server.
                 format: int64
                 type: integer
+              quorumStatus:
+                description: |-
+                  QuorumStatus indicates whether any node in the cluster is quorum critical.
+                  Format: "<status> [(<details>)]"
+                  Examples:
+                    - "ok" - no nodes are quorum critical
+                    - "ok (1 unavailable)" - no critical nodes, but 1 node unreachable
+                    - "quorum-critical: pod-0" - pod-0 is quorum critical
+                    - "quorum-critical: pod-0, pod-2 (1 unavailable)" - multiple critical pods
+                    - "unavailable" - all nodes unreachable or StatefulSet not ready
+                type: string
             required:
             - conditions
             type: object
@@ -5570,7 +5581,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: rabbitmq-cluster-operator
-  
+  namespace: rabbitmq
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -5580,7 +5591,7 @@ metadata:
     app.kubernetes.io/name: rabbitmq-cluster-operator
     app.kubernetes.io/part-of: rabbitmq
   name: rabbitmq-cluster-leader-election-role
-  
+  namespace: rabbitmq
 rules:
 - apiGroups:
   - coordination.k8s.io
@@ -5736,7 +5747,7 @@ metadata:
     app.kubernetes.io/name: rabbitmq-cluster-operator
     app.kubernetes.io/part-of: rabbitmq
   name: rabbitmq-cluster-leader-election-rolebinding
-  
+  namespace: rabbitmq
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -5744,7 +5755,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: rabbitmq-cluster-operator
-  
+  namespace: rabbitmq
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -5761,7 +5772,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: rabbitmq-cluster-operator
-  
+  namespace: rabbitmq
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -5771,7 +5782,7 @@ metadata:
     app.kubernetes.io/name: rabbitmq-cluster-operator
     app.kubernetes.io/part-of: rabbitmq
   name: rabbitmq-cluster-operator
-  
+  namespace: rabbitmq
 spec:
   replicas: 1
   selector:
@@ -5792,7 +5803,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: rabbitmqoperator/cluster-operator:2.18.0
+        image: rabbitmqoperator/cluster-operator:2.19.0
         name: operator
         ports:
         - containerPort: 9782
