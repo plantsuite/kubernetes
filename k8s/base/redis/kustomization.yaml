@@ -22,6 +22,7 @@ configMapGenerator:
       - config/redis.conf
       - config/init-config.sh
       - config/init-cluster.sh
+      - config/redis-healer.sh
 
 secretGenerator:
   - name: redis-env

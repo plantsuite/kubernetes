@@ -6,3 +6,20 @@ rules:
 - apiGroups: ["apps"]
   resources: ["statefulsets"]
   verbs: ["get"]
+# redis-healer sidecar: create Leases (resourceNames cannot restrict create in K8s RBAC)
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["create"]
+# redis-healer sidecar: get/update/patch only the named healing Lease
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  resourceNames: ["redis-cluster-healer"]
+  verbs: ["get", "update", "patch"]
+# redis-healer sidecar: read pods for multi-failure detection
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+# redis-healer sidecar: emit K8s Events
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create"]

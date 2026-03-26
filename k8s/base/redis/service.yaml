@@ -9,9 +9,11 @@ spec:
     - name: client
       port: 6379
       targetPort: 6379
+      appProtocol: redis
     - name: cluster
       port: 16379
       targetPort: 16379
+      appProtocol: redis
     # - name: metrics
     #   port: 9121
     #   targetPort: 9121

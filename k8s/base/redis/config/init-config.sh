@@ -1,23 +1,25 @@
 #!/bin/sh
+set -e
 
-# Use a variável de ambiente REPLICAS diretamente
-echo "Configuring for ${REPLICAS} replicas"
+# Usa variável de ambiente REPLICAS para configuração de cluster
+echo "Configurando para ${REPLICAS} replicas"
 
-# Derive o nome do serviço e o FQDN do pod (use o namespace do env ou da API downward)
+# Deriva nome do serviço e FQDN do pod do ambiente K8s
 SERVICENAME=$(echo ${HOSTNAME} | rev | cut -d'-' -f2- | rev)
 if [ -z "${NAMESPACE}" ]; then
   NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace 2>/dev/null || echo "redis")
 fi
 POD_DNS="${HOSTNAME}.${SERVICENAME}-nodes.${NAMESPACE}.svc.cluster.local"
 
-echo "Pod FQDN will be: ${POD_DNS}"
+echo "Pod FQDN: ${POD_DNS}"
+echo "Pod IP: ${POD_IP}"
 
 cp /etc/redis/redis.conf /tmp/redis.conf
-echo >> /tmp/redis.conf  # Garanta uma nova linha no final do arquivo
+echo >> /tmp/redis.conf
 
-# Defina maxmemory para 80% do limite de memória do contêiner
+# Define maxmemory como 80% do limite de memória do container
 if [ -n "${MEMORY_LIMIT}" ]; then
-  # Analise o valor e a unidade
+  # Analisa valor e unidade de memória
   VALUE=$(echo "${MEMORY_LIMIT}" | sed 's/[a-zA-Z]*$//')
   UNIT=$(echo "${MEMORY_LIMIT}" | sed 's/[0-9]*//')
   case "${UNIT}" in
@@ -39,14 +41,14 @@ if [ "${REPLICAS}" -eq "1" ]; then
   sed -i 's/cluster-enabled.*/cluster-enabled no/' /tmp/redis.conf
   echo requirepass "${REDIS_PASSWORD}" >> /tmp/redis.conf
 else
-  # Garanta que o cluster esteja habilitado para multi-nó
+  # Habilita cluster para múltiplos nós
   sed -i 's/cluster-enabled.*/cluster-enabled yes/' /tmp/redis.conf
-  echo "replica-announce-ip ${POD_DNS}" >> /tmp/redis.conf
+  
+  # Anuncia IP e hostname para convergência correta de topologia em restarts
+  echo "cluster-announce-ip ${POD_IP}" >> /tmp/redis.conf
   echo "cluster-announce-hostname ${POD_DNS}" >> /tmp/redis.conf
+  
   echo requirepass "${REDIS_PASSWORD}" >> /tmp/redis.conf
   echo masterauth "${REDIS_PASSWORD}" >> /tmp/redis.conf
 fi
-cp /tmp/redis.conf /config/redis.conf
-
-mkdir -p /data
-chown -R 1000:1000 /data
+cp /tmp/redis.conf /config/redis.conf || { echo "ERROR: failed to write /config/redis.conf"; exit 1; }
