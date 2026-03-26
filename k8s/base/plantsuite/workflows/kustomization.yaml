@@ -7,8 +7,8 @@ labels:
 
 resources:
   - deployment.yaml
-  - service.yaml
   - httproute.yaml
+  - service.yaml
 
 configMapGenerator:
   - name: workflows-appsettings
@@ -16,5 +16,3 @@ configMapGenerator:
       - appsettings.json
       - appsettings-ui.json
 
-generatorOptions:
-  disableNameSuffixHash: true

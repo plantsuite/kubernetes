@@ -6,10 +6,11 @@ labels:
     includeTemplates: true
 
 resources:
-  - statefulset.yaml
-  - service.yaml
-  - virtualservice.yaml
   - hpa.yaml
+  - virtualservice.yaml
+  - pdb.yaml
+  - service.yaml
+  - statefulset.yaml
 
 configMapGenerator:
   - name: timeseries-mqtt-appsettings

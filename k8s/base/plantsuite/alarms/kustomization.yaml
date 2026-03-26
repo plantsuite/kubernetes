@@ -6,14 +6,19 @@ labels:
     includeTemplates: true
 
 resources:
-  - serviceaccount.yaml
+  - deployment.yaml
+  - hpa.yaml
+  - virtualservice.yaml
+  - pdb.yaml
   - role.yaml
   - rolebinding.yaml
-  - deployment.yaml
   - service.yaml
-  - virtualservice.yaml
-  - hpa.yaml
-  - pdb.yaml
+  - serviceaccount.yaml
+
+configMapGenerator:
+  - name: alarms-appsettings
+    files:
+      - appsettings.json
 
 generatorOptions:
   disableNameSuffixHash: true

@@ -7,10 +7,10 @@ labels:
 
 resources:
   - deployment.yaml
-  - service.yaml
-  - virtualservice.yaml
   - hpa.yaml
+  - virtualservice.yaml
   - pdb.yaml
+  - service.yaml
 
 configMapGenerator:
   - name: dashboards-appsettings
