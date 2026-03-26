@@ -1,7 +1,7 @@
 namespace: mongodb
 
 resources:
-  - bundle-1.21.1.yaml
+  - bundle-v1.22.0.yaml
 
 patches:
   - target:
@@ -16,5 +16,5 @@ patches:
             cpu: 100m
             memory: 256Mi
           limits:
-            cpu: 100m
+            cpu: 500m
             memory: 256Mi
