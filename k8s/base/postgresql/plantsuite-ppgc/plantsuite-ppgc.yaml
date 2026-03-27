@@ -77,7 +77,7 @@ spec:
           max_db_connections: "200"
 
   backups:
-    enabled: true
+    enabled: false
     pgbackrest:
       image: docker.io/percona/percona-pgbackrest:2.57.0-1
       containers:

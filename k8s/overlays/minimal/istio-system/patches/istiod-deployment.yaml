@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod
+spec:
+  template:
+    spec:
+      containers:
+        - name: discovery
+          resources:
+            requests:
+              memory: 1Gi

@@ -1,0 +1,10 @@
+namespace: istio-system
+
+resources:
+  - ../../../base/istio-system
+
+patches:
+  - path: patches/istiod-deployment.yaml
+    target:
+      kind: Deployment
+      name: istiod

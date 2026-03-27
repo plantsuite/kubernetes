@@ -53,21 +53,21 @@ spec:
           operator: Equal
           value: mongo-rs
           effect: NoSchedule
-      configuration: |
-        setParameter:
-          logLevel: 0
-        operationProfiling:
-          mode: off
-          slowOpThresholdMs: 200
-        systemLog:
-          verbosity: 0
-          destination: file
-          path: /data/db/logs/mongod.log
-          logAppend: true
-          logRotate: rename
-        storage:
-          journal:
-            enabled: true
+      # configuration: |
+      #   setParameter:
+      #     logLevel: 0
+      #   operationProfiling:
+      #     mode: off
+      #     slowOpThresholdMs: 200
+      #   systemLog:
+      #     verbosity: 0
+      #     destination: file
+      #     path: /data/db/logs/mongod.log
+      #     logAppend: true
+      #     logRotate: rename
+      #   storage:
+      #     journal:
+      #       enabled: true
       affinity:
         antiAffinityTopologyKey: "kubernetes.io/hostname"
       podDisruptionBudget:
@@ -78,10 +78,10 @@ spec:
       resources:
         requests:
           cpu: "1"
-          memory: "16Gi"
+          memory: "2Gi"
         limits:
           cpu: "2"
-          memory: "16Gi"
+          memory: "2Gi"
       volumeSpec:
         persistentVolumeClaim:
           resources:
@@ -89,24 +89,24 @@ spec:
               storage: 100Gi
 
   sharding:
-    enabled: true
+    enabled: false
     configsvrReplSet:
       size: 3
-      configuration: |
-        setParameter:
-          logLevel: 0
-        operationProfiling:
-          mode: off
-          slowOpThresholdMs: 200
-        systemLog:
-          verbosity: 0
-          destination: file
-          path: /data/db/logs/mongod.log
-          logAppend: true
-          logRotate: rename
-        storage:
-          journal:
-            enabled: true
+      # configuration: |
+      #   setParameter:
+      #     logLevel: 0
+      #   operationProfiling:
+      #     mode: off
+      #     slowOpThresholdMs: 200
+      #   systemLog:
+      #     verbosity: 0
+      #     destination: file
+      #     path: /data/db/logs/mongod.log
+      #     logAppend: true
+      #     logRotate: rename
+      #   storage:
+      #     journal:
+      #       enabled: true
       affinity:
         antiAffinityTopologyKey: "kubernetes.io/hostname"
       podDisruptionBudget:
@@ -224,7 +224,7 @@ spec:
         compressionLevel: 6
 
   logcollector:
-    enabled: true
+    enabled: false
     image: percona/fluentbit:4.0.1-2
     resources:
       requests:

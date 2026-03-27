@@ -23,6 +23,17 @@ set -e
 # ---------------------------------------------------------------------------
 . /shared/replicas.env 2>/dev/null || REPLICAS=6
 
+# Guard para modo standalone: redis-healer não é applicable sem cluster
+if [ "${REPLICAS}" -eq "1" ]; then
+  echo "[healer] Standalone mode detected (REPLICAS=1) — redis-healer not applicable."
+  echo "[healer] Entering standby mode (sleeping indefinitely)..."
+  # Não fazer exit 0 — container precisa continuar rodando para evitar restart loop
+  # Em modo standalone, não há healing operations, apenas sleep
+  while true; do
+    sleep 3600  # Sleep 1 hora por vez
+  done
+fi
+
 SERVICENAME=$(echo "${HOSTNAME}" | rev | cut -d'-' -f2- | rev)
 ORDINAL=$(echo "${HOSTNAME}" | rev | cut -d'-' -f1 | rev)
 PRIMARIES=$(( (REPLICAS + 1) / 2 ))

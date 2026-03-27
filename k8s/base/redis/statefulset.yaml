@@ -192,7 +192,10 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - redis-cli ping
+                - |
+                  # Liveness deve ser conservadora: apenas verifica se o processo responde.
+                  # Estados transitórios como AOF rewrite nao devem provocar restart do pod.
+                  redis-cli ping | grep -q PONG
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -204,10 +207,22 @@ spec:
                 - /bin/sh
                 - -c
                 - |
-                  redis-cli cluster info | grep -q 'cluster_state:ok' && \
-                  redis-cli cluster nodes | grep -q 'myself.*master\|myself.*slave' && \
-                  MASTERS=$(redis-cli cluster info | grep -oP 'cluster_size:\K[0-9]+' 2>/dev/null || echo 3); \
-                  [ "${MASTERS:-0}" -ge 2 ]
+                  # Readiness probe dinâmica — detecta REPLICAS de /shared/replicas.env (fonte de verdade)
+                  # Suporta scaling events: quando StatefulSet muda de replicas, o probe se adapta automaticamente
+                  . /shared/replicas.env 2>/dev/null || REPLICAS=6
+                  
+                  if [ "${REPLICAS}" -eq "1" ]; then
+                    # Modo standalone (REPLICAS=1): apenas verifica conectividade básica
+                    # Evita falhas ao tentar comandos de cluster que não estão disponíveis
+                    redis-cli ping | grep -q PONG
+                  else
+                    # Modo cluster (REPLICAS>1): valida estado completo do cluster
+                    # Verifica: cluster operacional, pod é membro (master/slave), e mínimo 2 masters
+                    redis-cli cluster info | grep -q 'cluster_state:ok' && \
+                    redis-cli cluster nodes | grep -q 'myself.*master\|myself.*slave' && \
+                    MASTERS=$(redis-cli cluster info | grep -oP 'cluster_size:\K[0-9]+' 2>/dev/null || echo 3); \
+                    [ "${MASTERS:-0}" -ge 2 ]
+                  fi
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 5
