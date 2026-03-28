@@ -1,0 +1,21 @@
+labels:
+  - pairs:
+      app: controlstation
+      app.kubernetes.io/name: controlstation
+    includeSelectors: true
+    includeTemplates: true
+
+resources:
+  - deployment.yaml
+  - hpa.yaml
+  - virtualservice.yaml
+  - pdb.yaml
+  - service.yaml
+
+configMapGenerator:
+  - name: controlstation-appsettings
+    files:
+      - appsettings.json
+
+generatorOptions:
+  disableNameSuffixHash: true

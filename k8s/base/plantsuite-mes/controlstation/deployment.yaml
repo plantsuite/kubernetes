@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controlstation
+spec:
+  template:
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - controlstation
+      containers:
+        - name: controlstation
+          image: plantsuite.azurecr.io/plantsuite-controlstation:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: plantsuite-env
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: POD_SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.serviceAccountName
+            - name: DOTNET_SYSTEM_NET_HTTP_USESOCKETSHTTPHANDLER
+              value: "0"
+            - name: SSL_CERT_FILE
+              value: /etc/ssl/certs/ca-certificates.crt
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 15
+            timeoutSeconds: 3
+            periodSeconds: 3
+            successThreshold: 1
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 5
+            timeoutSeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 30
+            timeoutSeconds: 3
+            periodSeconds: 20
+            successThreshold: 1
+            failureThreshold: 5
+          volumeMounts:
+            - name: appsettings
+              readOnly: true
+              mountPath: /app/appsettings.json
+              subPath: appsettings.json
+            - name: license
+              readOnly: true
+              mountPath: /etc/plantsuite
+            - name: ca-certificates
+              mountPath: /etc/ssl/certs/ca-certificates.crt
+              subPath: ca.crt
+              readOnly: true
+      volumes:
+        - name: appsettings
+          configMap:
+            name: controlstation-appsettings
+            items:
+              - key: appsettings.json
+                path: appsettings.json
+        - name: license
+          secret:
+            secretName: plantsuite-license
+            items:
+              - key: license.crt
+                path: license.crt
+        - name: ca-certificates
+          secret:
+            secretName: ca-certificates
+            items:
+              - key: ca.crt
+                path: ca.crt
+      imagePullSecrets:
+        - name: plantsuite-cr
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
