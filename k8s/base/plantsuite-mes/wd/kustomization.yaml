@@ -1,0 +1,19 @@
+labels:
+  - pairs:
+      app: wd
+      app.kubernetes.io/name: wd
+    includeSelectors: true
+    includeTemplates: true
+
+resources:
+  - deployment.yaml
+  - hpa.yaml
+  - httproute.yaml
+  - pdb.yaml
+  - service.yaml
+
+configMapGenerator:
+  - name: wd-appsettings
+    files:
+      - appsettings.json
+      - appsettings-ui.json

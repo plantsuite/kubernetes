@@ -1,0 +1,18 @@
+labels:
+  - pairs:
+      app: gateway
+      app.kubernetes.io/name: gateway
+    includeSelectors: true
+    includeTemplates: true
+
+resources:
+  - deployment.yaml
+  - httproute.yaml
+  - pdb.yaml
+  - service.yaml
+
+configMapGenerator:
+  - name: gateway-appsettings
+    files:
+      - appsettings.json
+      - appsettings-ui.json
