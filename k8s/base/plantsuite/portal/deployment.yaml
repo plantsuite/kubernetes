@@ -56,10 +56,10 @@ spec:
                   fieldPath: spec.serviceAccountName
           resources:
             requests:
-              cpu: 15m
+              cpu: 50m
               memory: 32Mi
             limits:
-              cpu: 15m
+              cpu: 200m
               memory: 32Mi
           startupProbe:
             httpGet:
