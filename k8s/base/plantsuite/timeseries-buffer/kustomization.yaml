@@ -1,3 +1,5 @@
+namespace: plantsuite
+
 labels:
   - pairs:
       app: timeseries-buffer
@@ -18,3 +20,7 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
+
+images:
+  - name: plantsuite.azurecr.io/plantsuite-timeseries
+    newTag: 0.15.0

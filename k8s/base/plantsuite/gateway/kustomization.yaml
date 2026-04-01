@@ -1,3 +1,5 @@
+namespace: plantsuite
+
 labels:
   - pairs:
       app: gateway
@@ -16,3 +18,12 @@ configMapGenerator:
     files:
       - appsettings.json
       - appsettings-ui.json
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+images:
+  - name: plantsuite.azurecr.io/plantsuite-gateway
+    newTag: 1.1.7
+  - name: plantsuite.azurecr.io/plantsuite-gateway-ui
+    newTag: 1.1.7

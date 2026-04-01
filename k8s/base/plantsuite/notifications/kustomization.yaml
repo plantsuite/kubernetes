@@ -1,3 +1,5 @@
+namespace: plantsuite
+
 labels:
   - pairs:
       app: notifications
@@ -19,3 +21,7 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
+
+images:
+  - name: plantsuite.azurecr.io/plantsuite-notifications
+    newTag: 0.6.0

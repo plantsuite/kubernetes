@@ -1,3 +1,5 @@
+namespace: plantsuite
+
 labels:
   - pairs:
       app: portal
@@ -19,3 +21,7 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
+
+images:
+  - name: plantsuite.azurecr.io/plantsuite-iot-portal
+    newTag: 0.44.0

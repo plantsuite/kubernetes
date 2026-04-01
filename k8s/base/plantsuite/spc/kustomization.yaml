@@ -1,3 +1,5 @@
+namespace: plantsuite
+
 labels:
   - pairs:
       app: spc
@@ -22,3 +24,7 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
+
+images:
+  - name: plantsuite.azurecr.io/plantsuite-spc
+    newTag: 0.23.0

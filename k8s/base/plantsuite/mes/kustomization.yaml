@@ -1,3 +1,5 @@
+namespace: plantsuite
+
 labels:
   - pairs:
       app: mes
@@ -19,3 +21,7 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
+
+images:
+  - name: plantsuite.azurecr.io/plantsuite-mes
+    newTag: 1.1.14

@@ -2,6 +2,15 @@ namespace: plantsuite
 
 resources:
   - ../../../base/plantsuite
+  - ../../../base/plantsuite/alarms
+  - ../../../base/plantsuite/dashboards
+  - ../../../base/plantsuite/devices
+  - ../../../base/plantsuite/entities
+  - ../../../base/plantsuite/notifications
+  - ../../../base/plantsuite/queries
+  - ../../../base/plantsuite/spc
+  - ../../../base/plantsuite/timeseries-buffer
+  - ../../../base/plantsuite/timeseries-mqtt
 
 patches:
   - path: patches/dashboards/hpa.yaml

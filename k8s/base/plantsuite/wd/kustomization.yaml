@@ -1,3 +1,5 @@
+namespace: plantsuite
+
 labels:
   - pairs:
       app: wd
@@ -17,3 +19,12 @@ configMapGenerator:
     files:
       - appsettings.json
       - appsettings-ui.json
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+images:
+  - name: plantsuite.azurecr.io/plantsuite-wd
+    newTag: 1.0.0
+  - name: plantsuite.azurecr.io/plantsuite-wd-ui
+    newTag: 1.0.0

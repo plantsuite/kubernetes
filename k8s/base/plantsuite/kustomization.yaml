@@ -8,18 +8,8 @@ labels:
 resources:
   - namespace.yaml
   - ca-certificate-sync
-  - alarms
-  - dashboards
-  - devices
-  - entities
-  - notifications
-  - portal
-  - queries
-  - spc
   - tenants
-  - timeseries-buffer
-  - timeseries-mqtt
-#  - workflows
+  - portal
 
 secretGenerator:
   - name: plantsuite-env
@@ -35,29 +25,3 @@ secretGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
-
-images:
-  - name: plantsuite.azurecr.io/plantsuite-alarms
-    newTag: 0.6.0
-  - name: plantsuite.azurecr.io/plantsuite-dashboards
-    newTag: 0.28.0
-  - name: plantsuite.azurecr.io/plantsuite-devices
-    newTag: 0.12.0
-  - name: plantsuite.azurecr.io/plantsuite-entities
-    newTag: 0.14.2
-  - name: plantsuite.azurecr.io/plantsuite-notifications
-    newTag: 0.6.0
-  - name: plantsuite.azurecr.io/plantsuite-iot-portal
-    newTag: 0.44.0
-  - name: plantsuite.azurecr.io/plantsuite-queries
-    newTag: 0.24.0
-  - name: plantsuite.azurecr.io/plantsuite-spc
-    newTag: 0.23.0
-  - name: plantsuite.azurecr.io/plantsuite-tenants
-    newTag: 0.15.0
-  - name: plantsuite.azurecr.io/plantsuite-timeseries
-    newTag: 0.15.0
-  - name: plantsuite.azurecr.io/plantsuite-workflows
-    newTag: 1.2.2
-  - name: plantsuite.azurecr.io/plantsuite-workflows-studio
-    newTag: 1.2.2

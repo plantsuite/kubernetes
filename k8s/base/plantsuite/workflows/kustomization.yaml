@@ -1,3 +1,5 @@
+namespace: plantsuite
+
 labels:
   - pairs:
       app: workflows
@@ -15,4 +17,13 @@ configMapGenerator:
     files:
       - appsettings.json
       - appsettings-ui.json
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+images:
+  - name: plantsuite.azurecr.io/plantsuite-workflows
+    newTag: 1.2.2
+  - name: plantsuite.azurecr.io/plantsuite-workflows-studio
+    newTag: 1.2.2
 
