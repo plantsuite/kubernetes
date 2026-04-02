@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/queries
+
+patches:
+  - target:
+      kind: Deployment
+      name: queries
+    path: patches/deployment-ops.yaml

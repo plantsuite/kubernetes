@@ -1,0 +1,14 @@
+namespace: plantsuite
+
+resources:
+  - ../../../base/plantsuite
+
+patches:
+  - target:
+      kind: Job
+      name: sync-ca-certificate-init
+    path: ca-certificate-sync/patches/job-ops.yaml
+  - target:
+      kind: CronJob
+      name: sync-ca-certificate
+    path: ca-certificate-sync/patches/cronjob-ops.yaml

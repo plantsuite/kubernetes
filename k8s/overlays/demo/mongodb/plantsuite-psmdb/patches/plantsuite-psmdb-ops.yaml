@@ -1,0 +1,15 @@
+- op: replace
+  path: /spec/replsets/0/size
+  value: 1
+- op: remove
+  path: /spec/pmm/resources
+- op: remove
+  path: /spec/replsets/0/resources
+- op: remove
+  path: /spec/sharding/configsvrReplSet/resources
+- op: remove
+  path: /spec/sharding/mongos/resources
+- op: remove
+  path: /spec/backup/resources
+- op: remove
+  path: /spec/logcollector/resources

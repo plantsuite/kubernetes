@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/spc
+
+patches:
+  - target:
+      kind: Deployment
+      name: spc
+    path: patches/deployment-ops.yaml

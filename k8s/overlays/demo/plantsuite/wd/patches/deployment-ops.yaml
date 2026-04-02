@@ -1,0 +1,6 @@
+- op: replace
+  path: /spec/template/spec/containers/0/resources
+  value: {}
+- op: replace
+  path: /spec/template/spec/containers/1/resources
+  value: {}

@@ -1,0 +1,23 @@
+- op: replace
+  path: /spec/replicas
+  value: 1
+- op: replace
+  path: /spec/template/spec/initContainers/0/resources
+  value: {}
+- op: replace
+  path: /spec/template/spec/initContainers/1/resources
+  value: {}
+- op: replace
+  path: /spec/template/spec/initContainers/2/resources
+  value: {}
+- op: replace
+  path: /spec/template/spec/initContainers/2/env/3
+  value:
+    name: MEMORY_LIMIT
+    value: "256Mi"
+- op: replace
+  path: /spec/template/spec/containers/0/resources
+  value: {}
+- op: replace
+  path: /spec/template/spec/containers/1/resources
+  value: {}

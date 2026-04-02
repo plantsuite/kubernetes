@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/mes
+
+patches:
+  - target:
+      kind: Deployment
+      name: mes
+    path: patches/deployment-ops.yaml

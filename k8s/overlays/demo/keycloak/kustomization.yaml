@@ -1,0 +1,10 @@
+namespace: keycloak
+
+resources:
+  - ../../../base/keycloak
+
+patches:
+  - path: patches/operator-deployment-ops.yaml
+    target:
+      kind: Deployment
+      name: keycloak-operator

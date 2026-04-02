@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/devices
+
+patches:
+  - target:
+      kind: Deployment
+      name: devices
+    path: patches/deployment-ops.yaml

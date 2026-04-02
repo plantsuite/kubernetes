@@ -1,0 +1,10 @@
+namespace: rabbitmq
+
+resources:
+  - ../../../base/rabbitmq
+
+patches:
+  - path: patches/operator-deployment-ops.yaml
+    target:
+      kind: Deployment
+      name: rabbitmq-cluster-operator

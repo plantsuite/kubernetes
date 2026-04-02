@@ -1,0 +1,10 @@
+namespace: redis
+
+resources:
+  - ../../../base/redis
+
+patches:
+  - target:
+      kind: StatefulSet
+      name: redis
+    path: patches/statefulset-ops.yaml

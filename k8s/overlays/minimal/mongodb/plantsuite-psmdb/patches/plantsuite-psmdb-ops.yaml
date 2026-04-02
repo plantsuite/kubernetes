@@ -1,3 +1,0 @@
-- op: replace
-  path: /spec/replsets/0/size
-  value: 1

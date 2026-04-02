@@ -14,13 +14,13 @@
 - [Docker](https://docs.docker.com/get-docker/) **or** [Podman](https://podman.io/getting-started/installation)
 - [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
 
-## Creating a single-node cluster (ideal for minimal overlay tests)
+## Creating a single-node cluster (ideal for demo overlay tests)
 
 ```bash
-kind create cluster --name minimal
+kind create cluster --name demo
 ```
 
-This command creates a cluster with only one node (control-plane), enough for quick tests and validation of the `minimal` overlay. No config file is needed, as this is Kind's default behavior.
+This command creates a cluster with only one node (control-plane), enough for quick tests and validation of the `demo` overlay. No config file is needed, as this is Kind's default behavior.
 
 ## Creating a 3-node cluster (1 control-plane + 2 workers)
 

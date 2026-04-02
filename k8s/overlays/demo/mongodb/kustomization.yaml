@@ -1,0 +1,10 @@
+namespace: mongodb
+
+resources:
+  - ../../../base/mongodb
+
+patches:
+  - path: patches/operator-deployment-ops.yaml
+    target:
+      kind: Deployment
+      name: percona-server-mongodb-operator

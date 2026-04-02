@@ -1,0 +1,10 @@
+namespace: postgresql
+
+resources:
+  - ../../../../base/postgresql/plantsuite-ppgc
+
+patches:
+  - target:
+      kind: PerconaPGCluster
+      name: plantsuite-ppgc
+    path: patches/plantsuite-ppgc-ops.yaml

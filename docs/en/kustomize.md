@@ -6,7 +6,7 @@ The repository is organized to facilitate the use of [Kustomize](https://kustomi
 
 `k8s/base/`: Contains the base manifests, with lean, HA-oriented configurations.
 `k8s/overlays/`: Overlays for different scenarios:
-  - `minimal/`: For labs and demos, 1 replica.
+  - `demo/`: For labs and demos, with an aggressive profile (1 replica and broad requests/limits removal).
   - `base/`: Lean HA, close to production.
   - `production/`: Starting point for production, adjust as needed.
 
@@ -16,13 +16,13 @@ Each overlay can customize resources, replicas, environment variables, and other
 
 To modify values such as CPU, memory, replicas, or other settings:
 
-> 💡 **Tip:** Check the existing overlays in `k8s/overlays/minimal/` and `k8s/overlays/production/` for practical examples of how to apply patches and customizations.
+> 💡 **Tip:** Check the existing overlays in `k8s/overlays/demo/` and `k8s/overlays/production/` for practical examples of how to apply patches and customizations.
 
 1. **Never change files in `base/` directly**. Create an overlay in `overlays/` (or use an existing one) for your changes.
-2. In the desired overlay, add or edit patches (YAML) to override only the necessary fields. Example based on the `minimal/istio-ingress` overlay:
+2. In the desired overlay, add or edit patches (YAML) to override only the necessary fields. Example based on the `demo/istio-ingress` overlay:
 
 ```yaml
-# k8s/overlays/minimal/istio-ingress/patches/hpa.yaml
+# k8s/overlays/demo/istio-ingress/patches/hpa.yaml
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

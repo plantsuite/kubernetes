@@ -1,0 +1,16 @@
+- op: replace
+  path: /spec/instances/0/replicas
+  value: 1
+- op: replace
+  path: /spec/proxy/pgBouncer/replicas
+  value: 1
+- op: remove
+  path: /spec/instances/0/resources
+- op: remove
+  path: /spec/proxy/pgBouncer/resources
+- op: remove
+  path: /spec/backups/pgbackrest/containers/pgbackrest/resources
+- op: remove
+  path: /spec/backups/pgbackrest/containers/pgbackrestConfig/resources
+- op: remove
+  path: /spec/pmm/resources

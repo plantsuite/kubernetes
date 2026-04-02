@@ -1,0 +1,14 @@
+namespace: istio-ingress
+
+resources:
+  - ../../../base/istio-ingress
+
+patches:
+  - path: patches/hpa-ops.yaml
+    target:
+      kind: HorizontalPodAutoscaler
+      name: gateway
+  - path: patches/gateway-deployment-ops.yaml
+    target:
+      kind: Deployment
+      name: gateway

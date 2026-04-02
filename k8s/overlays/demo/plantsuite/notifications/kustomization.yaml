@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/notifications
+
+patches:
+  - target:
+      kind: Deployment
+      name: notifications
+    path: patches/deployment-ops.yaml

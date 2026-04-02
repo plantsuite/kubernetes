@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/gateway
+
+patches:
+  - target:
+      kind: Deployment
+      name: gateway
+    path: patches/deployment-ops.yaml

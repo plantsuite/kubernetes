@@ -14,13 +14,13 @@ O [Kind (Kubernetes IN Docker)](https://kind.sigs.k8s.io/) é uma ferramenta ope
 - [Docker](https://docs.docker.com/get-docker/) **ou** [Podman](https://podman.io/getting-started/installation)
 - [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
 
-## Criando um cluster de 1 nó (ideal para testes do overlay minimal)
+## Criando um cluster de 1 nó (ideal para testes do overlay demo)
 
 ```bash
-kind create cluster --name minimal
+kind create cluster --name demo
 ```
 
-Esse comando cria um cluster com apenas um nó (control-plane), suficiente para testes rápidos e validação do overlay `minimal`. Não é necessário passar um arquivo de configuração, pois este é o comportamento padrão do Kind.
+Esse comando cria um cluster com apenas um nó (control-plane), suficiente para testes rápidos e validação do overlay `demo`. Não é necessário passar um arquivo de configuração, pois este é o comportamento padrão do Kind.
 
 ## Criando um cluster com 3 nós (1 control-plane + 2 workers)
 

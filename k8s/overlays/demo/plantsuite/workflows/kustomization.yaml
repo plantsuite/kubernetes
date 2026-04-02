@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/workflows
+
+patches:
+  - target:
+      kind: Deployment
+      name: workflows
+    path: patches/deployment-ops.yaml

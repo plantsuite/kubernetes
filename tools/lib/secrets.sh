@@ -152,10 +152,10 @@ update_keycloak_secrets() {
 
   local existing_db_username="" existing_db_password="" existing_auth_secret="" existing_tenants_secret=""
   if [ -f "$env_file" ]; then
-    existing_db_username=$(grep "^db_username=" "$env_file" 2>/dev/null | cut -d'=' -f2)
-    existing_db_password=$(grep "^db_password=" "$env_file" 2>/dev/null | cut -d'=' -f2)
-    existing_auth_secret=$(grep "^client-secret_ps-auth-introspection=" "$env_file" 2>/dev/null | cut -d'=' -f2)
-    existing_tenants_secret=$(grep "^client-secret_ps-tenants-admin=" "$env_file" 2>/dev/null | cut -d'=' -f2)
+    existing_db_username=$(get_env_value "$env_file" "db_username")
+    existing_db_password=$(get_env_value "$env_file" "db_password")
+    existing_auth_secret=$(get_env_value "$env_file" "client-secret_ps-auth-introspection")
+    existing_tenants_secret=$(get_env_value "$env_file" "client-secret_ps-tenants-admin")
   fi
 
   if [ "$UPDATE_MODE" = true ] && [ -n "$existing_db_username" ] && [ -n "$existing_db_password" ] && [ -n "$existing_auth_secret" ] && [ -n "$existing_tenants_secret" ]; then
@@ -165,13 +165,18 @@ update_keycloak_secrets() {
 
   klog "Obtendo credenciais do banco de dados para o Keycloak..."
 
-  local db_username="$existing_db_username"
-  local db_password="$existing_db_password"
-  if [ -z "$db_username" ] || [ -z "$db_password" ]; then
-    db_username=$(get_k8s_secret_value "$namespace" "$secret_name" "user")
-    db_password=$(get_k8s_secret_value "$namespace" "$secret_name" "password")
+  # Fonte da verdade para db_username/db_password: Secret gerado pelo PostgreSQL.
+  # Isso evita reaproveitar credenciais antigas de .env.secret em instalação nova.
+  local db_username db_password
+  db_username=$(get_k8s_secret_value "$namespace" "$secret_name" "user")
+  db_password=$(get_k8s_secret_value "$namespace" "$secret_name" "password")
 
-    if [ -z "$db_username" ] || [ -z "$db_password" ]; then
+  if [ -z "$db_username" ] || [ -z "$db_password" ]; then
+    if [ "$UPDATE_MODE" = true ] && [ -n "$existing_db_username" ] && [ -n "$existing_db_password" ]; then
+      warning "Secret $namespace/$secret_name indisponível; preservando credenciais locais do Keycloak em modo update."
+      db_username="$existing_db_username"
+      db_password="$existing_db_password"
+    else
       error "Não foi possível obter as credenciais do secret $secret_name no namespace $namespace."
       return 1
     fi
@@ -242,13 +247,17 @@ update_vernemq_secrets() {
 
   klog "Obtendo senha do PostgreSQL para o VerneMQ..."
 
-  local postgres_password="$existing_postgres_password"
-  if [ -z "$postgres_password" ]; then
-    local secret_name="plantsuite-ppgc-pguser-vernemq"
-    local namespace="postgresql"
-    postgres_password=$(get_k8s_secret_value "$namespace" "$secret_name" "password")
+  # Fonte da verdade: Secret gerado pelo PostgreSQL Operator.
+  local secret_name="plantsuite-ppgc-pguser-vernemq"
+  local namespace="postgresql"
+  local postgres_password
+  postgres_password=$(get_k8s_secret_value "$namespace" "$secret_name" "password")
 
-    if [ -z "$postgres_password" ]; then
+  if [ -z "$postgres_password" ]; then
+    if [ "$UPDATE_MODE" = true ] && [ -n "$existing_postgres_password" ]; then
+      warning "Secret $namespace/$secret_name indisponível; preservando senha local do VerneMQ em modo update."
+      postgres_password="$existing_postgres_password"
+    else
       error "Não foi possível obter a senha do PostgreSQL do secret $secret_name no namespace $namespace."
       return 1
     fi
@@ -277,15 +286,17 @@ update_plantsuite_env() {
   local existing_mongo_conn
   existing_mongo_conn=$(get_env_value "$env_file" "Database__MongoDb__ConnectionString")
 
-  # Preferência: credenciais já presentes no .env.secret local -> Secret no cluster
-  if [ -n "$existing_mongo_conn" ] && echo "$existing_mongo_conn" | grep -q 'mongodb://[^:@]*:[^@]*@'; then
-    mongo_user=$(echo "$existing_mongo_conn" | sed -n 's|^.*mongodb://\([^:@]*\):\([^@]*\)@.*$|\1|p')
-    mongo_pass=$(echo "$existing_mongo_conn" | sed -n 's|^.*mongodb://\([^:@]*\):\([^@]*\)@.*$|\2|p')
-  fi
+  # Fonte da verdade: Secret gerado pelo MongoDB Operator.
+  mongo_user=$(get_k8s_secret_value "mongodb" "plantsuite-psmdb-secrets" "MONGODB_DATABASE_ADMIN_USER")
+  mongo_pass=$(get_k8s_secret_value "mongodb" "plantsuite-psmdb-secrets" "MONGODB_DATABASE_ADMIN_PASSWORD")
 
   if [ -z "$mongo_user" ] || [ -z "$mongo_pass" ]; then
-    mongo_user=$(get_k8s_secret_value "mongodb" "plantsuite-psmdb-secrets" "MONGODB_DATABASE_ADMIN_USER")
-    mongo_pass=$(get_k8s_secret_value "mongodb" "plantsuite-psmdb-secrets" "MONGODB_DATABASE_ADMIN_PASSWORD")
+    # Fallback UPDATE_MODE: extrai credenciais da connection string local existente.
+    if [ "$UPDATE_MODE" = true ] && [ -n "$existing_mongo_conn" ] && echo "$existing_mongo_conn" | grep -q 'mongodb://[^:@]*:[^@]*@'; then
+      warning "mongodb/plantsuite-psmdb-secrets indisponível; extraindo credenciais da connection string local em modo update."
+      mongo_user=$(echo "$existing_mongo_conn" | sed -n 's|^.*mongodb://\([^:@]*\):\([^@]*\)@.*$|\1|p')
+      mongo_pass=$(echo "$existing_mongo_conn" | sed -n 's|^.*mongodb://\([^:@]*\):\([^@]*\)@.*$|\2|p')
+    fi
   fi
   if [ -z "$mongo_user" ] || [ -z "$mongo_pass" ]; then
     error "Não foi possível obter credenciais do MongoDB em mongodb/plantsuite-psmdb-secrets."
@@ -335,16 +346,21 @@ update_plantsuite_env() {
   set_env_value "$env_file" "Database__Redis__ConnectionString" "$redis_conn"
 
   local rmq_user rmq_pass
-  # Preferência: valores já persistidos no .env.secret local -> Secret no cluster
-  rmq_user=$(get_env_value "$env_file" "MessageBus__RabbitMQ__User")
-  rmq_pass=$(get_env_value "$env_file" "MessageBus__RabbitMQ__Password")
+  local existing_rmq_user existing_rmq_pass
+  existing_rmq_user=$(get_env_value "$env_file" "MessageBus__RabbitMQ__User")
+  existing_rmq_pass=$(get_env_value "$env_file" "MessageBus__RabbitMQ__Password")
+  # Fonte da verdade: Secret gerado pelo RabbitMQ Operator.
+  rmq_user=$(get_k8s_secret_value "rabbitmq" "plantsuite-rmq-default-user" "username")
+  rmq_pass=$(get_k8s_secret_value "rabbitmq" "plantsuite-rmq-default-user" "password")
   if [ -z "$rmq_user" ] || [ -z "$rmq_pass" ]; then
-    rmq_user=$(get_k8s_secret_value "rabbitmq" "plantsuite-rmq-default-user" "username")
-    rmq_pass=$(get_k8s_secret_value "rabbitmq" "plantsuite-rmq-default-user" "password")
-  fi
-  if [ -z "$rmq_user" ] || [ -z "$rmq_pass" ]; then
-    error "Não foi possível obter usuário/senha do RabbitMQ em rabbitmq/plantsuite-rmq-default-user."
-    return 1
+    if [ "$UPDATE_MODE" = true ] && [ -n "$existing_rmq_user" ] && [ -n "$existing_rmq_pass" ]; then
+      warning "rabbitmq/plantsuite-rmq-default-user indisponível; preservando credenciais locais em modo update."
+      rmq_user="$existing_rmq_user"
+      rmq_pass="$existing_rmq_pass"
+    else
+      error "Não foi possível obter usuário/senha do RabbitMQ em rabbitmq/plantsuite-rmq-default-user."
+      return 1
+    fi
   fi
 
   local rmq_conn existing_rmq_conn

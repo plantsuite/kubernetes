@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/dashboards
+
+patches:
+  - target:
+      kind: Deployment
+      name: dashboards
+    path: patches/deployment-ops.yaml

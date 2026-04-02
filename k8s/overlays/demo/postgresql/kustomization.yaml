@@ -1,0 +1,10 @@
+namespace: postgresql
+
+resources:
+  - ../../../base/postgresql
+
+patches:
+  - path: patches/operator-deployment-ops.yaml
+    target:
+      kind: Deployment
+      name: percona-postgresql-operator

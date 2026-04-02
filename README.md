@@ -4,7 +4,7 @@
 
 ## Visão geral
 
-Manifestos [Kustomize](https://kustomize.io/) para instalar, atualizar e remover o stack [PlantSuite](https://www.plantsuite.com) em Kubernetes, com overlays para diferentes cenários (base, minimal, produção). Inclui scripts automatizados, configuração de dependências, certificados e instruções para acesso seguro aos serviços.
+Manifestos [Kustomize](https://kustomize.io/) para instalar, atualizar e remover o stack [PlantSuite](https://www.plantsuite.com) em Kubernetes, com overlays para diferentes cenários (base, demo, produção). Inclui scripts automatizados, configuração de dependências, certificados e instruções para acesso seguro aos serviços.
 
 > **Importante**: Estes manifestos servem como **template de referência**. Você provavelmente precisará ajustá-los conforme as necessidades específicas do seu ambiente, como: tamanho de PVCs, limites de recursos, configurações de rede, estratégias de backup, políticas de segurança e integrações com sistemas existentes.
 
@@ -12,14 +12,14 @@ Manifestos [Kustomize](https://kustomize.io/) para instalar, atualizar e remover
 
 ## Camadas
 - **base** (k8s/base): HA com recursos enxutos; bom para testes próximos a produção com menos hardware.
-- **minimal** (k8s/overlays/minimal): mesmos requests/limits da base, mas 1 réplica; ideal para demos ou labs pequenos.
+- **demo** (k8s/overlays/demo): perfil agressivo para demonstrações/labs; 1 réplica e remoção ampla de requests/limits de CPU/memória.
 - **production** (k8s/overlays/production): ponto de partida para produção; ajuste conforme tráfego/SLAs.
 
 ## Sizing sugerido para o cluster
 
 | Overlay     | Nós | vCPU | RAM  | Disco  |   | **Total vCPU** | **Total RAM** | **Total Disco** |
 |-------------|-----|------|------|--------|---|----------------|---------------|-----------------|
-| minimal     | 1   | 4    | 16Gi | 150Gi  |   | **4**          | **16Gi**      | **150Gi**       |
+| demo        | 1   | 4    | 16Gi | 150Gi  |   | **4**          | **16Gi**      | **150Gi**       |
 | base        | 3   | 4    | 16Gi | 200Gi  |   | **12**         | **48Gi**      | **600Gi**       |
 | production  | 3   | 8    | 32Gi | 500Gi  |   | **24**         | **96Gi**      | **1500Gi**      |
 
@@ -63,7 +63,7 @@ Além dos arquivos acima, verifique também as ferramentas abaixo instaladas e d
 
 - **Instalar**: `./tools/install.sh`
 	- Aplica o stack na ordem correta, espera prontidão dos serviços e preenche secrets/configs necessários.
-	- Como usar: rode a partir da raiz, escolha o overlay (base/minimal/production) e confirme com `sim`.
+	- Como usar: rode a partir da raiz, escolha o overlay (base/demo/production) e confirme com `sim`.
 - **Desinstalar**: `./tools/uninstall.sh`
 	- Remove tudo na ordem inversa e aguarda limpeza segura dos recursos.
 	- Como usar: rode a partir da raiz e confirme com `sim`.

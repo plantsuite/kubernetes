@@ -1,4 +1,0 @@
-namespace: mongodb
-
-resources:
-  - ../../../base/mongodb

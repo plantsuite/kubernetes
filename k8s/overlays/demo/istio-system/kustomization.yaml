@@ -1,0 +1,18 @@
+namespace: istio-system
+
+resources:
+  - ../../../base/istio-system
+
+patches:
+  - path: patches/istiod-deployment-ops.yaml
+    target:
+      kind: Deployment
+      name: istiod
+  - path: patches/istio-cni-daemonset-ops.yaml
+    target:
+      kind: DaemonSet
+      name: istio-cni-node
+  - path: patches/ztunnel-daemonset-ops.yaml
+    target:
+      kind: DaemonSet
+      name: ztunnel

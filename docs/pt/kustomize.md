@@ -6,7 +6,7 @@ O repositório está organizado para facilitar o uso do [Kustomize](https://kust
 
 `k8s/base/`: Contém os manifestos base, com configurações enxutas e orientadas a HA.
 `k8s/overlays/`: Sobreposições para diferentes cenários:
-  - `minimal/`: Para labs e demos, 1 réplica.
+  - `demo/`: Para labs e demos, com perfil agressivo (1 réplica e remoção ampla de requests/limits).
   - `base/`: HA enxuto, próximo de produção.
   - `production/`: Ponto de partida para produção, ajuste conforme necessidade.
 
@@ -16,13 +16,13 @@ Cada overlay pode customizar recursos, réplicas, variáveis de ambiente e outro
 
 Para modificar valores como CPU, memória, réplicas ou outras configurações:
 
-> 💡 **Dica:** Consulte os overlays existentes em `k8s/overlays/minimal/` e `k8s/overlays/production/` para exemplos práticos de como aplicar patches e customizações.
+> 💡 **Dica:** Consulte os overlays existentes em `k8s/overlays/demo/` e `k8s/overlays/production/` para exemplos práticos de como aplicar patches e customizações.
 
 1. **Nunca altere diretamente os arquivos em `base/`**. Crie um overlay em `overlays/` (ou use um existente) para suas modificações.
-2. No overlay desejado, adicione ou edite patches (YAML) para sobrescrever apenas os campos necessários. Exemplo baseado no overlay `minimal/istio-ingress`:
+2. No overlay desejado, adicione ou edite patches (YAML) para sobrescrever apenas os campos necessários. Exemplo baseado no overlay `demo/istio-ingress`:
 
 ```yaml
-# k8s/overlays/minimal/istio-ingress/patches/hpa.yaml
+# k8s/overlays/demo/istio-ingress/patches/hpa.yaml
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

@@ -4,7 +4,7 @@
 
 ## Overview
 
-[Kustomize](https://kustomize.io/) manifests to install, update, and remove the [PlantSuite](https://www.plantsuite.com) stack on Kubernetes, with overlays for different scenarios (base, minimal, production). Includes automated scripts, dependency configuration, certificates, and instructions for secure service access.
+[Kustomize](https://kustomize.io/) manifests to install, update, and remove the [PlantSuite](https://www.plantsuite.com) stack on Kubernetes, with overlays for different scenarios (base, demo, production). Includes automated scripts, dependency configuration, certificates, and instructions for secure service access.
 
 > **Important**: These manifests serve as a **reference template**. You will likely need to adjust them according to your environment's specific needs, such as: PVC sizes, resource limits, network configurations, backup strategies, security policies, and integrations with existing systems.
 
@@ -12,14 +12,14 @@
 
 ## Layers
 - **base** (k8s/base): HA with lean resources; good for production-like testing with less hardware.
-- **minimal** (k8s/overlays/minimal): same requests/limits as base, but 1 replica; ideal for demos or small labs.
+- **demo** (k8s/overlays/demo): aggressive profile for demos/labs; 1 replica and broad removal of CPU/memory requests/limits.
 - **production** (k8s/overlays/production): starting point for production; adjust as needed for traffic/SLAs.
 
 ## Suggested cluster sizing
 
 | Overlay     | Nodes | vCPU | RAM  | Disk  |   | **Total vCPU** | **Total RAM** | **Total Disk** |
 |-------------|-------|------|------|--------|---|----------------|---------------|----------------|
-| minimal     | 1     | 4    | 16Gi | 150Gi  |   | **4**          | **16Gi**      | **150Gi**      |
+| demo        | 1     | 4    | 16Gi | 150Gi  |   | **4**          | **16Gi**      | **150Gi**      |
 | base        | 3     | 4    | 16Gi | 200Gi  |   | **12**         | **48Gi**      | **600Gi**      |
 | production  | 3     | 8    | 32Gi | 500Gi  |   | **24**         | **96Gi**      | **1500Gi**     |
 
@@ -63,7 +63,7 @@ In addition to the above files, ensure the following tools are installed and ava
 
 - **Install**: `./tools/install.sh`
 	- Applies the stack in the correct order, waits for service readiness, and fills in required secrets/configs.
-	- Usage: run from the root, choose the overlay (base/minimal/production), and confirm with `yes`.
+	- Usage: run from the root, choose the overlay (base/demo/production), and confirm with `yes`.
 - **Uninstall**: `./tools/uninstall.sh`
 	- Removes everything in reverse order and waits for safe resource cleanup.
 	- Usage: run from the root and confirm with `yes`.
