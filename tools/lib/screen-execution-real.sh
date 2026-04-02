@@ -127,6 +127,12 @@ draw_real_execution_screen() {
     ((i++)) || true
   done
 
+  if [[ "$mode" == "failure" && -n "$detail" ]]; then
+    local footer_row=$((TUI_LINES - 2))
+    clear_area "$footer_row" 3 "$((TUI_COLS-8))"
+    at "$footer_row" 3 "$(trunc "$detail" $((TUI_COLS-8)))" "$C_WARN"
+  fi
+
   tput cup "$((TUI_LINES - 1))" 0 2>/dev/null || true
   tput el 2>/dev/null || true
   if [[ "$mode" == "failure" ]]; then
@@ -390,8 +396,9 @@ run_screen_execution_real() {
         REAL_EXEC_RESULT="failed"
         REAL_EXEC_ERROR="${REAL_LAST_ERROR:-${REAL_LAST_DETAIL:-Falha na etapa ${REAL_STEP_LABELS[$i]}}}"
         input_flush
+        local failure_detail="${REAL_LAST_DETAIL:-$REAL_LAST_ERROR}"
         while true; do
-          draw_real_execution_screen "$completed" "$i" "$REAL_LAST_ERROR" "failure"
+          draw_real_execution_screen "$completed" "$i" "$failure_detail" "failure"
           local key
           key=$(read_key) || continue
           case "$key" in
@@ -416,6 +423,7 @@ run_screen_execution_real() {
               REAL_STATUS_HOOK=""
               REAL_STEP_STATUS[$i]="failed"
               REAL_EXEC_ERROR="${REAL_LAST_ERROR:-${REAL_LAST_DETAIL:-Falha na etapa ${REAL_STEP_LABELS[$i]}}}"
+              failure_detail="${REAL_LAST_DETAIL:-$REAL_LAST_ERROR}"
               ;;
             c|C)
               REAL_STEP_STATUS[$i]="canceled"

@@ -346,6 +346,24 @@ update_plantsuite_env() {
     error "Não foi possível obter usuário/senha do RabbitMQ em rabbitmq/plantsuite-rmq-default-user."
     return 1
   fi
+
+  local rmq_conn existing_rmq_conn
+  existing_rmq_conn=$(get_env_value "$env_file" "MessageBus__RabbitMQ__ConnectionString")
+  if [ -n "$existing_rmq_conn" ]; then
+    if echo "$existing_rmq_conn" | grep -q "amqp://"; then
+      if echo "$existing_rmq_conn" | grep -q "@"; then
+        rmq_conn=$(echo "$existing_rmq_conn" | sed "s|amqp://[^@]*@|amqp://${rmq_user}:${rmq_pass}@|")
+      else
+        rmq_conn=$(echo "$existing_rmq_conn" | sed "s|amqp://|amqp://${rmq_user}:${rmq_pass}@|")
+      fi
+    else
+      rmq_conn="amqp://${rmq_user}:${rmq_pass}@plantsuite-rmq.rabbitmq.svc.cluster.local:5672/"
+    fi
+  else
+    rmq_conn="amqp://${rmq_user}:${rmq_pass}@plantsuite-rmq.rabbitmq.svc.cluster.local:5672/"
+  fi
+
+  set_env_value "$env_file" "MessageBus__RabbitMQ__ConnectionString" "$rmq_conn"
   set_env_value "$env_file" "MessageBus__RabbitMQ__User" "$rmq_user"
   set_env_value "$env_file" "MessageBus__RabbitMQ__Password" "$rmq_pass"
 

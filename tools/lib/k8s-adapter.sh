@@ -25,6 +25,34 @@ real_set_status_detail() {
   fi
 }
 
+# Retorna o evento de Warning mais recente de um namespace (opcionalmente filtrado por nome de recurso).
+# Útil para exibir contexto quando um rollout atinge o timeout.
+get_last_warning_event() {
+  local namespace="$1"
+  local resource_name="${2:-}"
+  local event_msg=""
+
+  # Tenta primeiro eventos do recurso específico
+  if [[ -n "$resource_name" ]]; then
+    event_msg=$(kubectl get events -n "$namespace" \
+      --field-selector "type=Warning,involvedObject.name=${resource_name}" \
+      --sort-by='.lastTimestamp' \
+      -o jsonpath='{range .items[*]}{.reason}{": "}{.message}{"\n"}{end}' \
+      2>/dev/null | grep -v '^$' | tail -1 || true)
+  fi
+
+  # Fallback: qualquer Warning no namespace
+  if [[ -z "$event_msg" ]]; then
+    event_msg=$(kubectl get events -n "$namespace" \
+      --field-selector type=Warning \
+      --sort-by='.lastTimestamp' \
+      -o jsonpath='{range .items[*]}{.reason}{": "}{.message}{"\n"}{end}' \
+      2>/dev/null | grep -v '^$' | tail -1 || true)
+  fi
+
+  printf '%s' "$event_msg"
+}
+
 real_assert_prereqs() {
   if ! command -v kubectl >/dev/null 2>&1; then
     REAL_LAST_ERROR="kubectl não encontrado"
@@ -138,6 +166,12 @@ real_wait_rollouts_from_path() {
         real_set_status_detail "Aguardando deployment ${name} (${display_name})..."
         if ! kubectl -n "$namespace" rollout status "deployment/${name}" --timeout="$timeout_secs" >/dev/null 2>&1; then
           REAL_LAST_ERROR="Timeout aguardando deployment/${name} em ${namespace} — pods não ficaram prontos em ${timeout_secs}s. Verifique: kubectl get pods -n ${namespace}"
+          local _evt
+          _evt=$(get_last_warning_event "$namespace" "$name" || true)
+          if [[ -n "$_evt" ]]; then
+            REAL_LAST_DETAIL="Evento k8s: $_evt"
+            real_set_status_detail "Evento k8s: $_evt"
+          fi
           return 50
         fi
         ;;
@@ -145,6 +179,12 @@ real_wait_rollouts_from_path() {
         real_set_status_detail "Aguardando statefulset ${name} (${display_name})..."
         if ! kubectl -n "$namespace" rollout status "statefulset/${name}" --timeout="$timeout_secs" >/dev/null 2>&1; then
           REAL_LAST_ERROR="Timeout aguardando statefulset/${name} em ${namespace} — pods não ficaram prontos em ${timeout_secs}s. Verifique: kubectl get pods -n ${namespace}"
+          local _evt
+          _evt=$(get_last_warning_event "$namespace" "$name" || true)
+          if [[ -n "$_evt" ]]; then
+            REAL_LAST_DETAIL="Evento k8s: $_evt"
+            real_set_status_detail "Evento k8s: $_evt"
+          fi
           return 50
         fi
         ;;
