@@ -283,6 +283,12 @@ draw_real_result_screen() {
   local h=$((TUI_LINES - top - 3))
   draw_box "$top" 1 "$h" "$((TUI_COLS-2))" "Resumo da Instalação"
 
+  # Limpa a área interna da caixa para evitar sobreposição com a tela anterior.
+  local clear_row
+  for ((clear_row=top+1; clear_row<top+h-1; clear_row++)); do
+    clear_area "$clear_row" 3 "$((TUI_COLS-8))"
+  done
+
   local row=$((top + 2))
   if [[ "$REAL_EXEC_RESULT" == "success" ]]; then
     at "$row" 3 "Instalação finalizada com sucesso." "$C_TITLE"

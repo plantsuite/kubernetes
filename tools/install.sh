@@ -110,7 +110,6 @@ while true; do
       EXEC_RESULT=$(cat "$_TMPFILE" 2>/dev/null || true)
       [[ "$EXEC_RESULT" == "__QUIT__" ]] && exit 0
       if [[ "$EXEC_RESULT" == "canceled" ]]; then
-        printf '\n[INFO] Instalação cancelada pelo usuário.\n\n'
         exit 0
       fi
       if [[ "$EXEC_RESULT" == "failed" ]]; then
