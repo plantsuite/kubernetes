@@ -388,7 +388,7 @@ run_screen_execution_real() {
         REAL_STATUS_HOOK=""
         REAL_STEP_STATUS[$i]="failed"
         REAL_EXEC_RESULT="failed"
-        REAL_EXEC_ERROR="$REAL_LAST_ERROR"
+        REAL_EXEC_ERROR="${REAL_LAST_ERROR:-${REAL_LAST_DETAIL:-Falha na etapa ${REAL_STEP_LABELS[$i]}}}"
         input_flush
         while true; do
           draw_real_execution_screen "$completed" "$i" "$REAL_LAST_ERROR" "failure"
@@ -415,7 +415,7 @@ run_screen_execution_real() {
               REAL_TUI_RUNNING=0
               REAL_STATUS_HOOK=""
               REAL_STEP_STATUS[$i]="failed"
-              REAL_EXEC_ERROR="$REAL_LAST_ERROR"
+              REAL_EXEC_ERROR="${REAL_LAST_ERROR:-${REAL_LAST_DETAIL:-Falha na etapa ${REAL_STEP_LABELS[$i]}}}"
               ;;
             c|C)
               REAL_STEP_STATUS[$i]="canceled"

@@ -19,6 +19,7 @@ declare -a CTX_SERVERS=()
 declare -a CTX_CURRENT=()
 CTX_COUNT=0
 CURRENT_CTX=""
+LAST_CTX_SELECTION=""      # Armazena a última seleção do usuário para preservar ao voltar
 
 # Header configurável por cada tela
 HEADER_SUBTITLE="Use as setas para navegar e ENTER para selecionar"
@@ -582,7 +583,22 @@ run_tui() {
         return 1
     fi
 
+    # Pré-seleciona: primeiro tenta usar a seleção anterior do usuário,
+    # senão usa o contexto atual do kubeconfig
     local selected=0
+    if [[ -n "$LAST_CTX_SELECTION" && "$LAST_CTX_SELECTION" -lt $CTX_COUNT ]]; then
+        # Usa a seleção anterior do usuário
+        selected="$LAST_CTX_SELECTION"
+    else
+        # Primeira vez ou seleção inválida: usa o contexto atual
+        local i
+        for ((i=0; i<CTX_COUNT; i++)); do
+            if [[ "${CTX_CURRENT[$i]}" == "1" ]]; then
+                selected=$i
+                break
+            fi
+        done
+    fi
     local running=1
 
         input_flush
@@ -628,6 +644,8 @@ run_tui() {
             echo "__QUIT__"
         fi
     elif [[ $selected -ge 0 ]]; then
+        # Salva a seleção do usuário para preservar ao voltar
+        LAST_CTX_SELECTION=$selected
         if [[ -n "${RESULT_FILE:-}" ]]; then
             echo "${CTX_NAMES[$selected]}" > "$RESULT_FILE"
         else

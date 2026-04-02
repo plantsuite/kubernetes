@@ -8,8 +8,6 @@ labels:
 resources:
   - namespace.yaml
   - ca-certificate-sync
-  - tenants
-  - portal
 
 secretGenerator:
   - name: plantsuite-env

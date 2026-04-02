@@ -7,6 +7,10 @@
 # Depende de: klog, warning, error, cl_printf  (definidos em install.sh)
 # =============================================================================
 
+# 1 (default): modo interativo com pergunta ao usuário em timeout.
+# 0: modo não-interativo (ex.: TUI) retorna falha no timeout.
+K8S_WAIT_INTERACTIVE=${K8S_WAIT_INTERACTIVE:-1}
+
 # Aguarda um intervalo fixo exibindo spinner sem prefixo e limpa a linha ao concluir
 wait_with_spinner() {
   local seconds="$1"
@@ -29,6 +33,11 @@ wait_with_spinner() {
 # Função para perguntar ao usuário como proceder quando um recurso não fica pronto
 handle_timeout() {
   local resource_name="$1"
+  if [ "${K8S_WAIT_INTERACTIVE:-1}" != "1" ]; then
+    error "$resource_name não ficou pronto dentro do tempo esperado."
+    return 2
+  fi
+
   while true; do
     echo ""
     echo "⚠️  $resource_name não ficou pronto dentro do tempo esperado."
@@ -58,36 +67,6 @@ handle_timeout() {
         ;;
     esac
   done
-}
-
-# Checa rapidamente se um Deployment está pronto
-is_deployment_ready() {
-  local namespace="$1"
-  local name="$2"
-
-  local desired ready
-  desired=$(kubectl get deploy "$name" -n "$namespace" -o jsonpath='{.spec.replicas}' 2>/dev/null)
-  ready=$(kubectl get deploy "$name" -n "$namespace" -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
-
-  if [ -n "$desired" ] && [ -n "$ready" ] && [ "$desired" = "$ready" ] && [ "$ready" -gt 0 ]; then
-    return 0
-  fi
-  return 1
-}
-
-# Checa rapidamente se um StatefulSet está pronto
-is_statefulset_ready() {
-  local namespace="$1"
-  local name="$2"
-
-  local desired ready
-  desired=$(kubectl get sts "$name" -n "$namespace" -o jsonpath='{.spec.replicas}' 2>/dev/null)
-  ready=$(kubectl get sts "$name" -n "$namespace" -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
-
-  if [ -n "$desired" ] && [ -n "$ready" ] && [ "$desired" = "$ready" ] && [ "$ready" -gt 0 ]; then
-    return 0
-  fi
-  return 1
 }
 
 # Função para aguardar deployment com spinner e tratamento de timeout interativo
@@ -124,8 +103,12 @@ wait_deployment_ready() {
 
     printf "\r\033[K"
     handle_timeout "$display_name"
-    if [ $? -eq 0 ]; then
+    local action=$?
+    if [ $action -eq 0 ]; then
       return 0
+    elif [ $action -eq 2 ]; then
+      error "$display_name não ficou pronto dentro do timeout."
+      return 1
     fi
   done
 }
@@ -166,8 +149,12 @@ wait_daemonset_ready() {
 
     printf "\r\033[K"
     handle_timeout "$display_name"
-    if [ $? -eq 0 ]; then
+    local action=$?
+    if [ $action -eq 0 ]; then
       return 0
+    elif [ $action -eq 2 ]; then
+      error "$display_name não ficou pronto dentro do timeout."
+      return 1
     fi
   done
 }
@@ -207,8 +194,12 @@ wait_statefulset_ready() {
 
     printf "\r\033[K"
     handle_timeout "$display_name"
-    if [ $? -eq 0 ]; then
+    local action=$?
+    if [ $action -eq 0 ]; then
       return 0
+    elif [ $action -eq 2 ]; then
+      error "$display_name não ficou pronto dentro do timeout."
+      return 1
     fi
   done
 }
@@ -239,8 +230,12 @@ wait_cert_manager_webhook_ready() {
 
     printf "\r\033[K"
     handle_timeout "cert-manager webhook"
-    if [ $? -eq 0 ]; then
+    local action=$?
+    if [ $action -eq 0 ]; then
       return 0
+    elif [ $action -eq 2 ]; then
+      error "cert-manager webhook não ficou pronto dentro do timeout."
+      return 1
     fi
   done
 }
@@ -272,8 +267,12 @@ wait_psmdb_ready() {
 
     printf "\r\033[K"
     handle_timeout "$display_name"
-    if [ $? -eq 0 ]; then
+    local action=$?
+    if [ $action -eq 0 ]; then
       return 0
+    elif [ $action -eq 2 ]; then
+      error "$display_name não ficou pronto dentro do timeout."
+      return 1
     fi
   done
 }
@@ -305,8 +304,12 @@ wait_postgrescluster_ready() {
 
     printf "\r\033[K"
     handle_timeout "$display_name"
-    if [ $? -eq 0 ]; then
+    local action=$?
+    if [ $action -eq 0 ]; then
       return 0
+    elif [ $action -eq 2 ]; then
+      error "$display_name não ficou pronto dentro do timeout."
+      return 1
     fi
   done
 }
@@ -338,8 +341,12 @@ wait_keycloak_ready() {
 
     printf "\r\033[K"
     handle_timeout "$display_name"
-    if [ $? -eq 0 ]; then
+    local action=$?
+    if [ $action -eq 0 ]; then
       return 0
+    elif [ $action -eq 2 ]; then
+      error "$display_name não ficou pronto dentro do timeout."
+      return 1
     fi
   done
 }
@@ -371,8 +378,12 @@ wait_keycloak_realm_ready() {
 
     printf "\r\033[K"
     handle_timeout "$display_name"
-    if [ $? -eq 0 ]; then
+    local action=$?
+    if [ $action -eq 0 ]; then
       return 0
+    elif [ $action -eq 2 ]; then
+      error "$display_name não ficou pronto dentro do timeout."
+      return 1
     fi
   done
 }
@@ -410,77 +421,3 @@ wait_rabbitmq_ready() {
   done
 }
 
-# Aguarda todos os Deployments/StatefulSets do Plantsuite em paralelo, reportando progresso
-wait_plantsuite_components_ready() {
-  local namespace="plantsuite"
-  local timeout=900
-  local interval=5
-  local start_ts=$(date +%s)
-
-  deployments=()
-  tempfile_deploy=$(mktemp)
-  kubectl get deploy -n "$namespace" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null > "$tempfile_deploy"
-  while IFS= read -r line; do
-    [ -n "$line" ] && deployments+=("$line")
-  done < "$tempfile_deploy"
-  rm -f "$tempfile_deploy"
-
-  statefulsets=()
-  tempfile_sts=$(mktemp)
-  kubectl get sts -n "$namespace" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null > "$tempfile_sts"
-  while IFS= read -r line; do
-    [ -n "$line" ] && statefulsets+=("$line")
-  done < "$tempfile_sts"
-  rm -f "$tempfile_sts"
-
-  local pending=()
-  local item
-  for item in "${deployments[@]}"; do
-    [ -n "$item" ] && pending+=("deploy:${item}")
-  done
-  for item in "${statefulsets[@]}"; do
-    [ -n "$item" ] && pending+=("sts:${item}")
-  done
-
-  if [ ${#pending[@]} -eq 0 ]; then
-    klog "Componentes do PlantSuite estão prontos."
-    return 0
-  fi
-
-  klog "Aguardando componentes do Plantsuite ficarem prontos..."
-
-  while [ ${#pending[@]} -gt 0 ]; do
-    local new_pending=()
-    for item in "${pending[@]}"; do
-      IFS=":" read -r kind name <<<"$item"
-      if [ "$kind" = "deploy" ]; then
-        if is_deployment_ready "$namespace" "$name"; then
-          continue
-        fi
-      else
-        if is_statefulset_ready "$namespace" "$name"; then
-          continue
-        fi
-      fi
-      new_pending+=("$item")
-    done
-
-    pending=("${new_pending[@]}")
-    if [ ${#pending[@]} -eq 0 ]; then
-      cl_printf "\033[K"
-      break
-    fi
-
-    local elapsed=$(( $(date +%s) - start_ts ))
-    if [ $elapsed -ge $timeout ]; then
-      cl_printf "\033[K"
-      handle_timeout "Plantsuite (pendentes: ${pending[*]})"
-      start_ts=$(date +%s)
-    fi
-
-    cl_printf "Aguardando componentes do Plantsuite: %s" "$(printf '%s ' "${pending[@]#*:}")"
-    sleep $interval
-  done
-  cl_printf "\033[K"
-  klog "Componentes do PlantSuite estão prontos."
-}

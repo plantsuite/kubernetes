@@ -43,6 +43,67 @@ set_env_value() {
     "$file" > "$file.tmp" && mv "$file.tmp" "$file"
 }
 
+# Lê uma chave de arquivo .env (retorna vazio se não existir)
+get_env_value() {
+  local file="$1"
+  local key="$2"
+  if [ ! -f "$file" ]; then
+    return 0
+  fi
+  grep -E "^${key}=" "$file" 2>/dev/null | head -n1 | cut -d'=' -f2-
+}
+
+# Lê uma chave de Secret do Kubernetes (retorna vazio em falha/ausência)
+get_k8s_secret_value() {
+  local namespace="$1"
+  local secret_name="$2"
+  local data_key="$3"
+  kubectl get secret "$secret_name" -n "$namespace" -o jsonpath="{.data.${data_key}}" 2>/dev/null | base64 -d
+}
+
+# Atualiza arquivos dependentes quando a senha do Redis mudar.
+sync_redis_password_dependents() {
+  local redis_password="$1"
+  [ -z "$redis_password" ] && return 0
+
+  # VerneMQ depende diretamente da senha do Redis
+  local vernemq_env="k8s/base/vernemq/.env.secret"
+  if [ -f "$vernemq_env" ]; then
+    set_env_value "$vernemq_env" "DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD" "$redis_password"
+  fi
+
+  # PlantSuite usa Redis connection string
+  local plantsuite_env="k8s/base/plantsuite/.env.secret"
+  if [ -f "$plantsuite_env" ]; then
+    local existing_redis_conn redis_conn
+    existing_redis_conn=$(get_env_value "$plantsuite_env" "Database__Redis__ConnectionString")
+    if [ -n "$existing_redis_conn" ]; then
+      if echo "$existing_redis_conn" | grep -q "password="; then
+        redis_conn=$(echo "$existing_redis_conn" | sed "s|password=[^,]*|password=${redis_password}|")
+      else
+        redis_conn="${existing_redis_conn},password=${redis_password}"
+      fi
+    else
+      redis_conn="plantsuite-redis.redis.svc.cluster.local,password=${redis_password}"
+    fi
+    set_env_value "$plantsuite_env" "Database__Redis__ConnectionString" "$redis_conn"
+  fi
+}
+
+# Atualiza dependentes quando os client secrets do Keycloak mudarem.
+sync_keycloak_client_secrets_dependents() {
+  local tenants_admin_secret="$1"
+  local introspection_secret="$2"
+  [ -z "$tenants_admin_secret" ] && return 0
+  [ -z "$introspection_secret" ] && return 0
+
+  local plantsuite_env="k8s/base/plantsuite/.env.secret"
+  if [ -f "$plantsuite_env" ]; then
+    set_env_value "$plantsuite_env" "Keycloak__AdminClientSecret" "$tenants_admin_secret"
+    set_env_value "$plantsuite_env" "Keycloak__IntrospectionClientSecret" "$introspection_secret"
+  fi
+}
+
 # Função para gerar senha segura e atualizar .env.secret
 generate_secure_password() {
   local env_file="$1"
@@ -67,13 +128,18 @@ generate_secure_password() {
 
     if [ -z "$password" ]; then
       error "Não foi possível gerar senha."
-      exit 1
+      return 1
     fi
   fi
 
   cat > "$env_file" <<EOF
 $key=$password
 EOF
+
+  # Redis é dependência de VerneMQ e PlantSuite: sincroniza os .env.secret locais.
+  if [ "$env_file" = "k8s/base/redis/.env.secret" ] && [ "$key" = "password" ]; then
+    sync_redis_password_dependents "$password"
+  fi
 
   klog "Senha gerada e atualizada em $env_file"
 }
@@ -102,12 +168,12 @@ update_keycloak_secrets() {
   local db_username="$existing_db_username"
   local db_password="$existing_db_password"
   if [ -z "$db_username" ] || [ -z "$db_password" ]; then
-    db_username=$(kubectl get secret "$secret_name" -n "$namespace" -o jsonpath='{.data.user}' 2>/dev/null | base64 -d)
-    db_password=$(kubectl get secret "$secret_name" -n "$namespace" -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
+    db_username=$(get_k8s_secret_value "$namespace" "$secret_name" "user")
+    db_password=$(get_k8s_secret_value "$namespace" "$secret_name" "password")
 
     if [ -z "$db_username" ] || [ -z "$db_password" ]; then
       error "Não foi possível obter as credenciais do secret $secret_name no namespace $namespace."
-      exit 1
+      return 1
     fi
   fi
 
@@ -127,6 +193,9 @@ db_password=$db_password
 client-secret_ps-auth-introspection=$auth_introspection_secret
 client-secret_ps-tenants-admin=$tenants_admin_secret
 EOF
+
+  # Mantém PlantSuite alinhado aos client secrets mais recentes do Keycloak.
+  sync_keycloak_client_secrets_dependents "$tenants_admin_secret" "$auth_introspection_secret"
 
   klog "Credenciais do banco de dados atualizadas em $env_file"
 }
@@ -150,10 +219,10 @@ update_vernemq_secrets() {
 
   local redis_password="$existing_redis_password"
   if [ -z "$redis_password" ]; then
-    redis_password=$(kubectl get secret plantsuite-redis-env -n redis -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
-
-    if [ -z "$redis_password" ] && [ -f "k8s/base/redis/.env.secret" ]; then
-      redis_password=$(grep -E '^password=' k8s/base/redis/.env.secret | head -n1 | cut -d'=' -f2-)
+    # Preferência: .env.secret local (fonte mais atual durante instalação) -> Secret no cluster.
+    redis_password=$(get_env_value "k8s/base/redis/.env.secret" "password")
+    if [ -z "$redis_password" ]; then
+      redis_password=$(get_k8s_secret_value "redis" "plantsuite-redis-env" "password")
     fi
 
     if [ -z "$redis_password" ]; then
@@ -162,10 +231,11 @@ update_vernemq_secrets() {
       password=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
       if [ -z "$password" ]; then
         error "Não foi possível gerar senha para o Redis."
-        exit 1
+        return 1
       fi
       echo "password=$password" > "k8s/base/redis/.env.secret"
       redis_password="$password"
+      sync_redis_password_dependents "$redis_password"
       klog "Nova senha do Redis gerada e salva."
     fi
   fi
@@ -176,26 +246,23 @@ update_vernemq_secrets() {
   if [ -z "$postgres_password" ]; then
     local secret_name="plantsuite-ppgc-pguser-vernemq"
     local namespace="postgresql"
-    postgres_password=$(kubectl get secret "$secret_name" -n "$namespace" -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
+    postgres_password=$(get_k8s_secret_value "$namespace" "$secret_name" "password")
 
     if [ -z "$postgres_password" ]; then
       error "Não foi possível obter a senha do PostgreSQL do secret $secret_name no namespace $namespace."
-      exit 1
+      return 1
     fi
   fi
 
   if [ ! -f "$env_file" ]; then
     error "Arquivo $env_file não encontrado."
-    exit 1
+    return 1
   fi
 
-  if ! grep -q "^DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=" "$env_file"; then
-    echo "DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=${redis_password}" >> "$env_file"
-  else
-    sed_inplace "s|^DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=.*|DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=${redis_password}|" "$env_file"
-  fi
-
-  sed_inplace "s|^DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__PASSWORD=.*|DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__PASSWORD=${postgres_password}|" "$env_file"
+  # Usa helper de .env para evitar problemas de escaping com sed em senhas contendo
+  # caracteres especiais (/, &, |, etc.).
+  set_env_value "$env_file" "DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD" "$redis_password"
+  set_env_value "$env_file" "DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__PASSWORD" "$postgres_password"
 
   klog "Senhas do Redis e PostgreSQL atualizadas no VerneMQ com sucesso."
 }
@@ -206,16 +273,26 @@ update_plantsuite_env() {
 
   klog "Atualizando .env.secret do Plantsuite com segredos do cluster..."
 
-  local mongo_user mongo_pass
-  mongo_user=$(kubectl get secret plantsuite-psmdb-secrets -n mongodb -o jsonpath='{.data.MONGODB_DATABASE_ADMIN_USER}' 2>/dev/null | base64 -d)
-  mongo_pass=$(kubectl get secret plantsuite-psmdb-secrets -n mongodb -o jsonpath='{.data.MONGODB_DATABASE_ADMIN_PASSWORD}' 2>/dev/null | base64 -d)
-  if [ -z "$mongo_user" ] || [ -z "$mongo_pass" ]; then
-    error "Não foi possível obter credenciais do MongoDB em mongodb/plantsuite-psmdb-secrets."
-    exit 1
+  local mongo_user="" mongo_pass=""
+  local existing_mongo_conn
+  existing_mongo_conn=$(get_env_value "$env_file" "Database__MongoDb__ConnectionString")
+
+  # Preferência: credenciais já presentes no .env.secret local -> Secret no cluster
+  if [ -n "$existing_mongo_conn" ] && echo "$existing_mongo_conn" | grep -q 'mongodb://[^:@]*:[^@]*@'; then
+    mongo_user=$(echo "$existing_mongo_conn" | sed -n 's|^.*mongodb://\([^:@]*\):\([^@]*\)@.*$|\1|p')
+    mongo_pass=$(echo "$existing_mongo_conn" | sed -n 's|^.*mongodb://\([^:@]*\):\([^@]*\)@.*$|\2|p')
   fi
 
-  local mongo_conn existing_mongo_conn
-  existing_mongo_conn=$(grep "^Database__MongoDb__ConnectionString=" "$env_file" 2>/dev/null | cut -d'=' -f2-)
+  if [ -z "$mongo_user" ] || [ -z "$mongo_pass" ]; then
+    mongo_user=$(get_k8s_secret_value "mongodb" "plantsuite-psmdb-secrets" "MONGODB_DATABASE_ADMIN_USER")
+    mongo_pass=$(get_k8s_secret_value "mongodb" "plantsuite-psmdb-secrets" "MONGODB_DATABASE_ADMIN_PASSWORD")
+  fi
+  if [ -z "$mongo_user" ] || [ -z "$mongo_pass" ]; then
+    error "Não foi possível obter credenciais do MongoDB em mongodb/plantsuite-psmdb-secrets."
+    return 1
+  fi
+
+  local mongo_conn
 
   if [ -n "$existing_mongo_conn" ]; then
     if echo "$existing_mongo_conn" | grep -q "mongodb://"; then
@@ -233,13 +310,14 @@ update_plantsuite_env() {
   set_env_value "$env_file" "Database__MongoDb__ConnectionString" "$mongo_conn"
 
   local redis_pass
-  redis_pass=$(kubectl get secret plantsuite-redis-env -n redis -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
-  if [ -z "$redis_pass" ] && [ -f "k8s/base/redis/.env.secret" ]; then
-    redis_pass=$(grep -E '^password=' k8s/base/redis/.env.secret | head -n1 | cut -d'=' -f2-)
+  # Preferência: .env.secret local -> Secret no cluster
+  redis_pass=$(get_env_value "k8s/base/redis/.env.secret" "password")
+  if [ -z "$redis_pass" ]; then
+    redis_pass=$(get_k8s_secret_value "redis" "plantsuite-redis-env" "password")
   fi
   if [ -z "$redis_pass" ]; then
     error "Não foi possível obter a senha do Redis para montar a connection string do Redis."
-    exit 1
+    return 1
   fi
 
   local redis_conn existing_redis_conn
@@ -257,29 +335,44 @@ update_plantsuite_env() {
   set_env_value "$env_file" "Database__Redis__ConnectionString" "$redis_conn"
 
   local rmq_user rmq_pass
-  rmq_user=$(kubectl get secret plantsuite-rmq-default-user -n rabbitmq -o jsonpath='{.data.username}' 2>/dev/null | base64 -d)
-  rmq_pass=$(kubectl get secret plantsuite-rmq-default-user -n rabbitmq -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)
+  # Preferência: valores já persistidos no .env.secret local -> Secret no cluster
+  rmq_user=$(get_env_value "$env_file" "MessageBus__RabbitMQ__User")
+  rmq_pass=$(get_env_value "$env_file" "MessageBus__RabbitMQ__Password")
+  if [ -z "$rmq_user" ] || [ -z "$rmq_pass" ]; then
+    rmq_user=$(get_k8s_secret_value "rabbitmq" "plantsuite-rmq-default-user" "username")
+    rmq_pass=$(get_k8s_secret_value "rabbitmq" "plantsuite-rmq-default-user" "password")
+  fi
   if [ -z "$rmq_user" ] || [ -z "$rmq_pass" ]; then
     error "Não foi possível obter usuário/senha do RabbitMQ em rabbitmq/plantsuite-rmq-default-user."
-    exit 1
+    return 1
   fi
   set_env_value "$env_file" "MessageBus__RabbitMQ__User" "$rmq_user"
   set_env_value "$env_file" "MessageBus__RabbitMQ__Password" "$rmq_pass"
 
   local mqtt_pass
-  mqtt_pass=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
+  mqtt_pass=$(get_env_value "$env_file" "MessageBus__MQTT__Password")
+  if [ -z "$mqtt_pass" ]; then
+    mqtt_pass=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
+  fi
   if [ -z "$mqtt_pass" ]; then
     error "Não foi possível gerar senha do MQTT."
-    exit 1
+    return 1
   fi
   set_env_value "$env_file" "MessageBus__MQTT__Password" "$mqtt_pass"
 
   local kc_admin kc_intro
-  kc_admin=$(kubectl get secret keycloak -n keycloak -o jsonpath='{.data.client-secret_ps-tenants-admin}' 2>/dev/null | base64 -d)
-  kc_intro=$(kubectl get secret keycloak -n keycloak -o jsonpath='{.data.client-secret_ps-auth-introspection}' 2>/dev/null | base64 -d)
+  # Preferência: .env.secret local do Keycloak -> Secret no cluster
+  kc_admin=$(get_env_value "k8s/base/keycloak/plantsuite-kc/.env.secret" "client-secret_ps-tenants-admin")
+  kc_intro=$(get_env_value "k8s/base/keycloak/plantsuite-kc/.env.secret" "client-secret_ps-auth-introspection")
+  if [ -z "$kc_admin" ]; then
+    kc_admin=$(get_k8s_secret_value "keycloak" "keycloak" "client-secret_ps-tenants-admin")
+  fi
+  if [ -z "$kc_intro" ]; then
+    kc_intro=$(get_k8s_secret_value "keycloak" "keycloak" "client-secret_ps-auth-introspection")
+  fi
   if [ -z "$kc_admin" ] || [ -z "$kc_intro" ]; then
     error "Não foi possível obter client secrets do Keycloak em keycloak/keycloak."
-    exit 1
+    return 1
   fi
   set_env_value "$env_file" "Keycloak__AdminClientSecret" "$kc_admin"
   set_env_value "$env_file" "Keycloak__IntrospectionClientSecret" "$kc_intro"
