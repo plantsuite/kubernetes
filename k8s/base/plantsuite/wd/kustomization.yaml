@@ -10,7 +10,7 @@ labels:
 resources:
   - deployment.yaml
   - hpa.yaml
-  - httproute.yaml
+  - virtualservice.yaml
   - pdb.yaml
   - service.yaml
 

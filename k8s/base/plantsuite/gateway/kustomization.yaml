@@ -9,7 +9,7 @@ labels:
 
 resources:
   - deployment.yaml
-  - httproute.yaml
+  - virtualservice.yaml
   - pdb.yaml
   - service.yaml
 
