@@ -94,6 +94,8 @@ C_SELECTED=""
 C_DIM=""
 C_ACCENT=""
 C_WARN=""
+C_ERROR=""
+C_SUCCESS=""
 
 tui_init_colors() {
     local ncolors
@@ -105,6 +107,8 @@ tui_init_colors() {
         C_DIM=$(tput setaf 7)                           # branco suave
         C_ACCENT=$(tput setaf 6)                        # ciano
         C_WARN=$(tput setaf 3)                          # amarelo
+        C_ERROR=$(tput setaf 1)                         # vermelho
+        C_SUCCESS=$(tput setaf 2)                       # verde
     fi
 }
 
@@ -274,14 +278,18 @@ read_key() {
     [[ -z "$k" ]] && { echo "ENTER"; return 0; }
     if [[ "$k" == $'\033' ]]; then
         # Sequencias CSI/SS3 (setas, PgUp/PgDn). Evita vazar 'A'/'B' como tecla comum.
-        IFS= read -rsn1 -t 0.1 k2 2>/dev/null || { echo "ESC"; return 0; }
+        # Se a sequencia vier incompleta/atrasada, nao fechar a UI por engano.
+        IFS= read -rsn1 -t 0.1 k2 2>/dev/null || { echo "UNKNOWN"; return 0; }
         if [[ "$k2" == "[" || "$k2" == "O" ]]; then
-            IFS= read -rsn1 -t 0.1 k3 2>/dev/null || { echo "ESC"; return 0; }
+            IFS= read -rsn1 -t 0.1 k3 2>/dev/null || { echo "UNKNOWN"; return 0; }
             case "$k3" in
                 A) echo "UP"; return 0 ;;
                 B) echo "DOWN"; return 0 ;;
+                C) echo "RIGHT"; return 0 ;;
+                D) echo "LEFT"; return 0 ;;
                 F) echo "END"; return 0 ;;
                 H) echo "HOME"; return 0 ;;
+                M) echo "ENTER"; return 0 ;;
                 5|6)
                     # Espera '~' de PgUp/PgDn
                     IFS= read -rsn1 -t 0.05 rest 2>/dev/null || true
@@ -292,10 +300,12 @@ read_key() {
                     fi
                     ;;
             esac
-            echo "ESC"
+            # Sequencia ANSI desconhecida: ignora sem encerrar a interface.
+            echo "UNKNOWN"
             return 0
         fi
-        echo "ESC"
+        # ESC seguido de byte nao reconhecido: nao trata como sair.
+        echo "UNKNOWN"
         return 0
     fi
     case "$k" in

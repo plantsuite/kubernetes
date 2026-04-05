@@ -86,7 +86,9 @@ draw_real_execution_chrome() {
   local top=$((HEADER_HEIGHT + 1))
   local h=$((TUI_LINES - top - 3))
   [[ $h -lt 10 ]] && h=10
-  draw_box "$top" 1 "$h" "$((TUI_COLS-2))" "Instalação Kubernetes"
+  local op_label="Instalacao Kubernetes"
+  [[ "${UPDATE_MODE:-false}" == "true" ]] && op_label="Atualizacao Kubernetes"
+  draw_box "$top" 1 "$h" "$((TUI_COLS-2))" "$op_label"
 }
 
 # Salvar/recuperar cache em arquivo compartilhado entre processos
@@ -287,7 +289,9 @@ real_execution_status_hook() {
 draw_real_result_screen() {
   local top=$((HEADER_HEIGHT + 1))
   local h=$((TUI_LINES - top - 3))
-  draw_box "$top" 1 "$h" "$((TUI_COLS-2))" "Resumo da Instalação"
+  local result_title="Resumo da Instalacao"
+  [[ "${UPDATE_MODE:-false}" == "true" ]] && result_title="Resumo da Atualizacao"
+  draw_box "$top" 1 "$h" "$((TUI_COLS-2))" "$result_title"
 
   # Limpa a área interna da caixa para evitar sobreposição com a tela anterior.
   local clear_row
@@ -297,11 +301,23 @@ draw_real_result_screen() {
 
   local row=$((top + 2))
   if [[ "$REAL_EXEC_RESULT" == "success" ]]; then
-    at "$row" 3 "Instalação finalizada com sucesso." "$C_TITLE"
+    if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+      at "$row" 3 "Atualizacao finalizada com sucesso." "$C_TITLE"
+    else
+      at "$row" 3 "Instalacao finalizada com sucesso." "$C_TITLE"
+    fi
   elif [[ "$REAL_EXEC_RESULT" == "canceled" ]]; then
-    at "$row" 3 "Instalação cancelada pelo usuário." "$C_WARN"
+    if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+      at "$row" 3 "Atualizacao cancelada pelo usuario." "$C_WARN"
+    else
+      at "$row" 3 "Instalacao cancelada pelo usuario." "$C_WARN"
+    fi
   else
-    at "$row" 3 "Instalação finalizada com erro." "$C_WARN"
+    if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+      at "$row" 3 "Atualizacao finalizada com erro." "$C_WARN"
+    else
+      at "$row" 3 "Instalacao finalizada com erro." "$C_WARN"
+    fi
   fi
   ((row+=2))
 
@@ -319,10 +335,14 @@ draw_real_result_screen() {
 
 
 run_screen_execution_real() {
-  HEADER_SUBTITLE="Executando instalação"
+  if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+    HEADER_SUBTITLE="Executando atualizacao"
+    build_update_pipeline
+  else
+    HEADER_SUBTITLE="Executando instalacao"
+    build_real_pipeline
+  fi
   HEADER_CTX="contexto: ${SELECTED_CONTEXT:-} | overlay: ${SELECTED_OVERLAY:-}"
-
-  build_real_pipeline
 
   local i
   REAL_STEP_STATUS=()
@@ -334,7 +354,11 @@ run_screen_execution_real() {
   tui_check_compat
   if [[ $TUI_PLAIN -eq 1 ]]; then
     echo ""
-    echo "=== Instalação Kubernetes ==="
+    if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+      echo "=== Atualizacao Kubernetes ==="
+    else
+      echo "=== Instalacao Kubernetes ==="
+    fi
     echo "Contexto/Overlay: $HEADER_CTX"
 
     if ! real_assert_prereqs; then

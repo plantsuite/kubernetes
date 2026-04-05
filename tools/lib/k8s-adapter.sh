@@ -213,6 +213,44 @@ real_apply_plantsuite_service() {
   return 0
 }
 
+real_delete_plantsuite_service() {
+  local svc="$1"
+
+  if [[ -z "$svc" ]]; then
+    REAL_LAST_ERROR="Servico PlantSuite nao informado para remocao"
+    return 40
+  fi
+
+  case "$svc" in
+    portal|tenants)
+      REAL_LAST_ERROR="Remocao bloqueada para servico protegido: $svc"
+      return 41
+      ;;
+  esac
+
+  local svc_base="k8s/base/plantsuite/$svc/"
+  if [[ ! -d "$svc_base" ]]; then
+    REAL_LAST_ERROR="Servico PlantSuite desconhecido para remocao: $svc"
+    return 40
+  fi
+
+  local component_path
+  component_path=$(real_get_component_path "$svc_base")
+
+  real_set_status_detail "Removendo plantsuite/$svc..."
+
+  local output
+  output=$(kubectl kustomize --enable-helm "$component_path" 2>&1 | kubectl delete -f - --ignore-not-found=true 2>&1)
+  if [[ $? -ne 0 ]]; then
+    REAL_LAST_ERROR="Falha ao remover plantsuite/$svc"
+    REAL_LAST_DETAIL="$output"
+    return 30
+  fi
+
+  real_set_status_detail "plantsuite/$svc removido"
+  return 0
+}
+
 real_execute_step() {
   local step_id="$1"
   REAL_LAST_ERROR=""
@@ -222,6 +260,13 @@ real_execute_step() {
     local svc="${step_id#plantsuite-service:}"
     real_apply_plantsuite_service "$svc" || return $?
     real_set_status_detail "Etapa $step_id concluída"
+    return 0
+  fi
+
+  if [[ "$step_id" == plantsuite-delete-service:* ]]; then
+    local svc_delete="${step_id#plantsuite-delete-service:}"
+    real_delete_plantsuite_service "$svc_delete" || return $?
+    real_set_status_detail "Etapa $step_id concluida"
     return 0
   fi
 
