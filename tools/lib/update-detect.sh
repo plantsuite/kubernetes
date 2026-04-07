@@ -15,7 +15,7 @@ UPDATE_DETECTED_MODE="install"
 
 # Lista canonica de servicos Plantsuite para update.
 declare -a UPDATE_PLANTSUITE_SERVICES=(
-  "alarms" "controlstation" "dashboards" "devices" "entities"
+  "alarms" "controlstations" "dashboards" "devices" "entities"
   "gateway" "mes" "notifications" "portal" "production"
   "queries" "spc" "tenants" "timeseries-buffer" "timeseries-mqtt"
   "wd" "workflows"

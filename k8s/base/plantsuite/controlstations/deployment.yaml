@@ -1,10 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controlstation
+  name: controlstations
 spec:
   template:
     spec:
+      serviceAccountName: controlstations
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
@@ -14,10 +15,10 @@ spec:
               - key: app
                 operator: In
                 values:
-                  - controlstation
+                  - controlstations
       containers:
-        - name: controlstation
-          image: plantsuite.azurecr.io/plantsuite-controlstation:latest
+        - name: controlstations
+          image: plantsuite.azurecr.io/plantsuite-controlstations:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -108,7 +109,7 @@ spec:
       volumes:
         - name: appsettings
           configMap:
-            name: controlstation-appsettings
+            name: controlstations-appsettings
             items:
               - key: appsettings.json
                 path: appsettings.json

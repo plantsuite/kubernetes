@@ -1,10 +1,10 @@
 apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
-  name: controlstation
+  name: controlstations
 spec:
   hosts:
-    - controlstation.plantsuite.local
+    - controlstations.plantsuite.local
   gateways:
     - istio-ingress/gateway
   http:
@@ -15,4 +15,4 @@ spec:
         - destination:
             port:
               number: 80
-            host: controlstation
+            host: controlstations

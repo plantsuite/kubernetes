@@ -1,10 +1,10 @@
 namespace: plantsuite
 
 resources:
-  - ../../../../base/plantsuite/controlstation
+  - ../../../../base/plantsuite/controlstations
 
 patches:
   - target:
       kind: Deployment
-      name: controlstation
+      name: controlstations
     path: patches/deployment-ops.yaml

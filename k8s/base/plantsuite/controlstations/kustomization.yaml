@@ -2,8 +2,8 @@ namespace: plantsuite
 
 labels:
   - pairs:
-      app: controlstation
-      app.kubernetes.io/name: controlstation
+      app: controlstations
+      app.kubernetes.io/name: controlstations
     includeSelectors: true
     includeTemplates: true
 
@@ -12,10 +12,13 @@ resources:
   - hpa.yaml
   - virtualservice.yaml
   - pdb.yaml
+  - role.yaml
+  - rolebinding.yaml
   - service.yaml
+  - serviceaccount.yaml
 
 configMapGenerator:
-  - name: controlstation-appsettings
+  - name: controlstations-appsettings
     files:
       - appsettings.json
 
@@ -23,5 +26,5 @@ generatorOptions:
   disableNameSuffixHash: true
 
 images:
-  - name: plantsuite.azurecr.io/plantsuite-controlstation
+  - name: plantsuite.azurecr.io/plantsuite-controlstations
     newTag: 1.2.17

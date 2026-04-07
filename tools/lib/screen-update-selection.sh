@@ -24,7 +24,7 @@ declare -a UPD_INFRA_ACTION=() # 0=noop, 1=apply
 UPD_INFRA_COUNT=0
 
 declare -a UPD_SVC_NAMES=(
-  "alarms" "controlstation" "dashboards" "devices" "entities"
+  "alarms" "controlstations" "dashboards" "devices" "entities"
   "gateway" "mes" "notifications" "portal" "production"
   "queries" "spc" "tenants" "timeseries-buffer" "timeseries-mqtt"
   "wd" "workflows"

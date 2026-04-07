@@ -9,7 +9,7 @@ source "$SCRIPT_DIR/common/tui.sh"
 # ── Dados de serviços ────────────────────────────────────────────────────────
 # Ordenado alfabeticamente.
 declare -a SVC_NAMES=(
-    "alarms" "controlstation" "dashboards" "devices" "entities"
+    "alarms" "controlstations" "dashboards" "devices" "entities"
     "gateway" "mes" "notifications" "portal" "production"
     "queries" "spc" "tenants" "timeseries-buffer" "timeseries-mqtt"
     "wd" "workflows"

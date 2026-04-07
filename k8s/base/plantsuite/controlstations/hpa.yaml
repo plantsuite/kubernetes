@@ -1,11 +1,11 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: controlstation
+  name: controlstations
 spec:
   scaleTargetRef:
     kind: Deployment
-    name: controlstation
+    name: controlstations
     apiVersion: apps/v1
   minReplicas: 1
   maxReplicas: 3
