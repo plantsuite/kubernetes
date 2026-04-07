@@ -10,9 +10,7 @@
 			"helm": "3",
 			"minikube": "none"
 		},
-		"ghcr.io/wcgomes/devcontainer-features/the-agency:0": {
-			"use-agent-zero": true
-		}
+		"ghcr.io/wcgomes/devcontainer-features/agency-agents:0": {}
 	},
 	"mounts": [
 		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.kube/config,target=/usr/local/share/kube-localhost/config,type=bind,readonly"
