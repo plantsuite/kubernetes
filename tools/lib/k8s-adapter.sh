@@ -194,6 +194,122 @@ real_wait_rollouts_from_path() {
   return 0
 }
 
+real_snapshot_workload_generations() {
+  local component_path="$1"
+  local namespace="$2"
+
+  local resources
+  resources=$(kubectl kustomize --enable-helm "$component_path" 2>/dev/null \
+    | kubectl apply --dry-run=client -o name -f - 2>/dev/null \
+    | grep -E '^(deployment.apps|statefulset.apps)/' || true)
+
+  [[ -z "$resources" ]] && return 0
+
+  local resource kind name gen
+  while IFS= read -r resource; do
+    [[ -z "$resource" ]] && continue
+    kind="${resource%%/*}"
+    name="${resource#*/}"
+
+    case "$kind" in
+      deployment.apps)
+        gen=$(kubectl -n "$namespace" get deployment "$name" -o jsonpath='{.metadata.generation}' 2>/dev/null || true)
+        ;;
+      statefulset.apps)
+        gen=$(kubectl -n "$namespace" get statefulset "$name" -o jsonpath='{.metadata.generation}' 2>/dev/null || true)
+        ;;
+    esac
+
+    if [[ -n "$gen" ]]; then
+      echo "${resource}:${gen}"
+    fi
+  done <<< "$resources"
+}
+
+real_workload_generation_changed() {
+  local snapshot="$1"
+  local namespace="$2"
+
+  local resource="${snapshot%%:*}"
+  local old_gen="${snapshot##*:}"
+  local kind="${resource%%/*}"
+  local name="${resource#*/}"
+
+  local new_gen=""
+  case "$kind" in
+    deployment.apps)
+      new_gen=$(kubectl -n "$namespace" get deployment "$name" -o jsonpath='{.metadata.generation}' 2>/dev/null || true)
+      ;;
+    statefulset.apps)
+      new_gen=$(kubectl -n "$namespace" get statefulset "$name" -o jsonpath='{.metadata.generation}' 2>/dev/null || true)
+      ;;
+  esac
+
+  [[ -z "$new_gen" ]] && return 1
+  [[ "$new_gen" != "$old_gen" ]] && return 0
+  return 1
+}
+
+real_ensure_restart_after_apply() {
+  local component_path="$1"
+  local namespace="$2"
+  local display_name="$3"
+  local snapshot="$4"
+  local timeout_secs="${5:-300s}"
+  local skip_restart="${6:-false}"
+
+  [[ "$skip_restart" == "true" ]] && return 0
+  [[ -z "$snapshot" ]] && return 0
+
+  local line resource kind name
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    resource="${line%%:*}"
+    kind="${resource%%/*}"
+    name="${resource#*/}"
+
+    if real_workload_generation_changed "$line" "$namespace"; then
+      real_set_status_detail "Generation alterado em ${kind}/${name} — aguardando rollout (${display_name})..."
+    else
+      real_set_status_detail "Forçando restart do ${kind} ${name} (${display_name})..."
+      if ! kubectl -n "$namespace" rollout restart "$resource" 2>/dev/null; then
+        REAL_LAST_ERROR="Falha ao forçar restart de ${resource} em ${namespace}"
+        return 51
+      fi
+    fi
+
+    if ! kubectl -n "$namespace" rollout status "$resource" --timeout="$timeout_secs" >/dev/null 2>&1; then
+      REAL_LAST_ERROR="Timeout aguardando rollout de ${resource} em ${namespace} — pods não ficaram prontos em ${timeout_secs}s. Verifique: kubectl get pods -n ${namespace}"
+      local _evt
+      _evt=$(get_last_warning_event "$namespace" "$name" || true)
+      if [[ -n "$_evt" ]]; then
+        REAL_LAST_DETAIL="Evento k8s: $_evt"
+        real_set_status_detail "Evento k8s: $_evt"
+      fi
+      return 50
+    fi
+  done <<< "$snapshot"
+
+  return 0
+}
+
+real_apply_and_ensure_restart() {
+  local component_path="$1"
+  local name="$2"
+  local namespace="$3"
+  local timeout_secs="${4:-300s}"
+  local skip_restart="${5:-false}"
+
+  local snapshot
+  snapshot=$(real_snapshot_workload_generations "$component_path" "$namespace")
+
+  real_apply_kustomize_path "$component_path" "$name" || return $?
+
+  real_ensure_restart_after_apply "$component_path" "$namespace" "$name" "$snapshot" "$timeout_secs" "$skip_restart" || return $?
+
+  return 0
+}
+
 real_apply_plantsuite_service() {
   local svc="$1"
 
@@ -208,8 +324,15 @@ real_apply_plantsuite_service() {
     return 40
   fi
 
-  real_apply_component "$svc_base" "plantsuite/$svc" || return $?
-  real_wait_rollouts_from_path "$svc_base" "plantsuite" "plantsuite/$svc" || return $?
+  local component_path
+  component_path=$(real_get_component_path "$svc_base")
+
+  if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+    real_apply_and_ensure_restart "$component_path" "plantsuite/$svc" "plantsuite" "300s" || return $?
+  else
+    real_apply_kustomize_path "$component_path" "plantsuite/$svc" || return $?
+    real_wait_rollouts_from_path "$component_path" "plantsuite" "plantsuite/$svc" || return $?
+  fi
   return 0
 }
 
@@ -269,9 +392,22 @@ real_execute_step() {
     case "$svc" in
       controlstations|gateway|wd|production)
         local svc_base="k8s/base/plantsuite/${svc}/"
-        real_apply_component "$svc_base" "plantsuite/${svc}" || return $?
-        patch_mes_mqtt_user_env "$svc" || return $?
-        real_wait_rollouts_from_path "$svc_base" "plantsuite" "plantsuite/${svc}" || return $?
+        local component_path
+        component_path=$(real_get_component_path "$svc_base")
+        if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+          # Snapshot antes do apply para detectar se o patch já triggerou rollout
+          local mes_snapshot
+          mes_snapshot=$(real_snapshot_workload_generations "$component_path" "plantsuite")
+          real_apply_component "$svc_base" "plantsuite/${svc}" || return $?
+          patch_mes_mqtt_user_env "$svc" || return $?
+          # O patch_mes_mqtt_user_env já causa rollout via scale-to-0/set env/scale-back,
+          # mas precisamos aguardar. Se o snapshot não mudou, forçamos restart extra.
+          real_ensure_restart_after_apply "$component_path" "plantsuite" "plantsuite/${svc}" "$mes_snapshot" "300s" || return $?
+        else
+          real_apply_component "$svc_base" "plantsuite/${svc}" || return $?
+          patch_mes_mqtt_user_env "$svc" || return $?
+          real_wait_rollouts_from_path "$svc_base" "plantsuite" "plantsuite/${svc}" || return $?
+        fi
         ;;
       *)
         real_apply_plantsuite_service "$svc" || return $?
@@ -290,43 +426,69 @@ real_execute_step() {
 
   case "$step_id" in
     metrics-server)
-      real_apply_component "k8s/base/metrics-server/" "metrics-server" || return $?
-      real_set_status_detail "Aguardando metrics-server ficar disponível..."
-      metrics_server_detect_and_fix_tls
-      wait_deployment_ready "kube-system" "k8s-app=metrics-server" "metrics-server" "metrics-server" || return $?
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        real_apply_and_ensure_restart "k8s/base/metrics-server/" "metrics-server" "kube-system" "300s" || return $?
+      else
+        real_apply_component "k8s/base/metrics-server/" "metrics-server" || return $?
+        real_set_status_detail "Aguardando metrics-server ficar disponível..."
+        metrics_server_detect_and_fix_tls
+        wait_deployment_ready "kube-system" "k8s-app=metrics-server" "metrics-server" "metrics-server" || return $?
+      fi
       ;;
     cert-manager-operator)
-      real_apply_component "k8s/base/cert-manager/" "cert-manager" || return $?
-      real_set_status_detail "Aguardando cert-manager deployment..."
-      wait_deployment_ready "cert-manager" "app.kubernetes.io/name=cert-manager" "cert-manager" "cert-manager" || return $?
-      real_set_status_detail "Aguardando cert-manager webhook..."
-      wait_cert_manager_webhook_ready || return $?
-      real_set_status_detail "Aguardando estabilização do cert-manager webhook (90s)..."
-      sleep 90
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        real_apply_and_ensure_restart "k8s/base/cert-manager/" "cert-manager" "cert-manager" "300s" || return $?
+        real_set_status_detail "Aguardando cert-manager webhook..."
+        wait_cert_manager_webhook_ready || return $?
+        real_set_status_detail "Aguardando estabilização do cert-manager webhook (90s)..."
+        sleep 90
+      else
+        real_apply_component "k8s/base/cert-manager/" "cert-manager" || return $?
+        real_set_status_detail "Aguardando cert-manager deployment..."
+        wait_deployment_ready "cert-manager" "app.kubernetes.io/name=cert-manager" "cert-manager" "cert-manager" || return $?
+        real_set_status_detail "Aguardando cert-manager webhook..."
+        wait_cert_manager_webhook_ready || return $?
+        real_set_status_detail "Aguardando estabilização do cert-manager webhook (90s)..."
+        sleep 90
+      fi
       ;;
     cert-manager-issuers)
       real_apply_component "k8s/base/cert-manager/issuers/" "cert-manager/issuers" || return $?
       ;;
     istio-system)
-      real_apply_component "k8s/base/istio-system/" "istio-system" || return $?
-      real_set_status_detail "Aguardando istiod..."
-      wait_deployment_ready "istio-system" "app=istiod" "istiod" "istiod" || return $?
-      real_set_status_detail "Aguardando istio-cni-node..."
-      wait_daemonset_ready "istio-system" "app=istio-cni-node" "istio-cni-node" "istio-cni-node" || return $?
-      real_set_status_detail "Aguardando ztunnel..."
-      wait_daemonset_ready "istio-system" "app=ztunnel" "ztunnel" "ztunnel" || return $?
-      real_set_status_detail "Aguardando estabilização do istio-system (60s)..."
-      sleep 60
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        real_apply_and_ensure_restart "k8s/base/istio-system/" "istio-system" "istio-system" "300s" || return $?
+        real_set_status_detail "Aguardando estabilização do istio-system (60s)..."
+        sleep 60
+      else
+        real_apply_component "k8s/base/istio-system/" "istio-system" || return $?
+        real_set_status_detail "Aguardando istiod..."
+        wait_deployment_ready "istio-system" "app=istiod" "istiod" "istiod" || return $?
+        real_set_status_detail "Aguardando istio-cni-node..."
+        wait_daemonset_ready "istio-system" "app=istio-cni-node" "istio-cni-node" "istio-cni-node" || return $?
+        real_set_status_detail "Aguardando ztunnel..."
+        wait_daemonset_ready "istio-system" "app=ztunnel" "ztunnel" "ztunnel" || return $?
+        real_set_status_detail "Aguardando estabilização do istio-system (60s)..."
+        sleep 60
+      fi
       ;;
     istio-ingress)
-      real_apply_component "k8s/base/istio-ingress/" "istio-ingress" || return $?
-      real_set_status_detail "Aguardando gateway do istio-ingress..."
-      wait_deployment_ready "istio-ingress" "app=gateway" "gateway" "istio-ingress gateway" || return $?
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        real_apply_and_ensure_restart "k8s/base/istio-ingress/" "istio-ingress" "istio-ingress" "300s" || return $?
+      else
+        real_apply_component "k8s/base/istio-ingress/" "istio-ingress" || return $?
+        real_set_status_detail "Aguardando gateway do istio-ingress..."
+        wait_deployment_ready "istio-ingress" "app=gateway" "gateway" "istio-ingress gateway" || return $?
+      fi
       ;;
     aspire)
-      real_apply_component "k8s/base/aspire/" "aspire" || return $?
-      real_set_status_detail "Aguardando aspire-dashboard..."
-      wait_deployment_ready "aspire" "app=aspire-dashboard" "aspire-dashboard" "aspire-dashboard" || return $?
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        real_apply_and_ensure_restart "k8s/base/aspire/" "aspire" "aspire" "300s" || return $?
+      else
+        real_apply_component "k8s/base/aspire/" "aspire" || return $?
+        real_set_status_detail "Aguardando aspire-dashboard..."
+        wait_deployment_ready "aspire" "app=aspire-dashboard" "aspire-dashboard" "aspire-dashboard" || return $?
+      fi
       ;;
     mongodb-operator)
       real_apply_component "k8s/base/mongodb/" "mongodb" || return $?
@@ -354,9 +516,13 @@ real_execute_step() {
       ;;
     redis)
       generate_secure_password "k8s/base/redis/.env.secret" "password"
-      real_apply_component "k8s/base/redis/" "redis" || return $?
-      real_set_status_detail "Aguardando statefulset redis..."
-      wait_statefulset_ready "redis" "app=redis" "plantsuite-redis" "redis" || return $?
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        real_apply_and_ensure_restart "k8s/base/redis/" "redis" "redis" "300s" || return $?
+      else
+        real_apply_component "k8s/base/redis/" "redis" || return $?
+        real_set_status_detail "Aguardando statefulset redis..."
+        wait_statefulset_ready "redis" "app=redis" "plantsuite-redis" "redis" || return $?
+      fi
       ;;
     keycloak-operator)
       real_apply_component "k8s/base/keycloak/" "keycloak" || return $?
@@ -385,15 +551,23 @@ real_execute_step() {
       ;;
     vernemq)
       update_vernemq_secrets
-      real_apply_component "k8s/base/vernemq/" "vernemq" || return $?
-      real_set_status_detail "Aguardando statefulset vernemq..."
-      wait_statefulset_ready "vernemq" "app.kubernetes.io/name=plantsuite-vmq" "plantsuite-vmq" "plantsuite-vmq" || return $?
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        real_apply_and_ensure_restart "k8s/base/vernemq/" "vernemq" "vernemq" "300s" || return $?
+      else
+        real_apply_component "k8s/base/vernemq/" "vernemq" || return $?
+        real_set_status_detail "Aguardando statefulset vernemq..."
+        wait_statefulset_ready "vernemq" "app.kubernetes.io/name=plantsuite-vmq" "plantsuite-vmq" "plantsuite-vmq" || return $?
+      fi
       ;;
     plantsuite-base)
       update_plantsuite_env
-      real_apply_component "k8s/base/plantsuite/" "plantsuite" || return $?
-      real_set_status_detail "Validando rollouts de plantsuite..."
-      real_wait_rollouts_from_path "k8s/base/plantsuite/" "plantsuite" "plantsuite" "300s" || return $?
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        real_apply_and_ensure_restart "k8s/base/plantsuite/" "plantsuite" "plantsuite" "300s" || return $?
+      else
+        real_apply_component "k8s/base/plantsuite/" "plantsuite" || return $?
+        real_set_status_detail "Validando rollouts de plantsuite..."
+        real_wait_rollouts_from_path "k8s/base/plantsuite/" "plantsuite" "plantsuite" "300s" || return $?
+      fi
       ;;
     *)
       REAL_LAST_ERROR="Etapa desconhecida: $step_id"

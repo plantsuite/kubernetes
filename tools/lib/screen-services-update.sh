@@ -222,7 +222,7 @@ draw_update_services_screen() {
   apply_count=$(count_services_action 1)
   delete_count=$(count_services_action 2)
 
-  local status="  [OK] instalado  [--] ausente  [!!] degradado  |  [U] aplicar/instalar: ${apply_count}  [R] remover: ${delete_count}"
+  local status="  [OK] instalado  [--] ausente  [!!] degradado  |  [U] instalar/atualizar: ${apply_count}  [R] remover: ${delete_count}"
   at "$((tbl_top+tbl_h))" 0 "$(trunc "$status" $((TUI_COLS-2)))" "$C_DIM"
 
   tput cup "$((TUI_LINES - 1))" 0 2>/dev/null || true

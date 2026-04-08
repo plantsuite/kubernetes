@@ -477,7 +477,7 @@ patch_mes_mqtt_user_env() {
     current_replicas=1
   fi
 
-  klog "Scalerando $svc para 0 antes do patch de env var..."
+  klog "Escalando $svc para 0 antes do patch de env var..."
   kubectl scale deployment "${svc}" -n plantsuite --replicas=0 2>&1
   if [ $? -ne 0 ]; then
     error "Falha ao escalar $svc para 0"

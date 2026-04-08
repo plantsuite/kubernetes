@@ -70,8 +70,10 @@ draw_progress_bar() {
   local col="$2"
   local width="$3"
   local percent="$4"
-  local filled=$((percent * width / 100))
-  local empty=$((width - filled))
+  local inner=$((width - 2))
+  [[ $inner -lt 1 ]] && inner=1
+  local filled=$((percent * inner / 100))
+  local empty=$((inner - filled))
 
   tput cup "$row" "$col" 2>/dev/null || true
   printf '%s[' "$C_DIM"

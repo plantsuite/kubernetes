@@ -74,7 +74,7 @@ draw_update_confirmation_screen() {
   draw_word_list "$row" "Infra para atualizar:" "$UPDATE_SELECTED_INFRA" "$C_DIM" "$max_rows"
   row=$((_WORD_LIST_ROW + 1))
 
-  draw_word_list "$row" "Serviços para aplicar/instalar:" "$UPDATE_SELECTED_PLANTSUITE_APPLY" "$C_WARN" "$max_rows"
+  draw_word_list "$row" "Serviços para instalar/atualizar:" "$UPDATE_SELECTED_PLANTSUITE_APPLY" "$C_WARN" "$max_rows"
   row=$((_WORD_LIST_ROW + 1))
 
   draw_word_list "$row" "Serviços para remover (ATENÇÃO):" "$UPDATE_SELECTED_PLANTSUITE_DELETE" "$C_ERROR" "$max_rows"
@@ -96,7 +96,7 @@ run_screen_update_confirmation() {
     echo "Overlay : $SELECTED_OVERLAY"
     echo ""
     echo "Infra para atualizar: ${UPDATE_SELECTED_INFRA:-nenhum}"
-    echo "Serviços para aplicar/instalar: ${UPDATE_SELECTED_PLANTSUITE_APPLY:-nenhum}"
+    echo "Serviços para instalar/atualizar: ${UPDATE_SELECTED_PLANTSUITE_APPLY:-nenhum}"
     echo "Serviços para remover: ${UPDATE_SELECTED_PLANTSUITE_DELETE:-nenhum}"
 
     if [[ -n "$UPDATE_SELECTED_PLANTSUITE_DELETE" ]]; then

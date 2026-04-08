@@ -161,11 +161,11 @@ at() {
     [[ -n "$attr" ]] && printf '%s' "$C_RESET"
 }
 
-# Limpa área da linha de col até col+width
+# Limpa 'width' caracteres a partir de 'col' na 'row'
 clear_area() {
     local row="$1" col="$2" width="$3"
     tput cup "$row" "$col" 2>/dev/null || return 0
-    printf '%*s' "$width" ""
+    printf '%*s' "$width" ''
 }
 
 has_kustomization_dir() {
