@@ -303,6 +303,10 @@ real_execution_status_hook() {
 
 
 draw_real_result_screen() {
+  if ! [ -t 1 ]; then
+    return
+  fi
+
   local top=$((HEADER_HEIGHT + 1))
   local h=$((TUI_LINES - top - 3))
   local result_title="Resumo da Instalacao"
@@ -494,10 +498,12 @@ run_screen_execution_real() {
 
   draw_real_result_screen
 
-  # Renderizar informações de log no rodapé
-  tput cup "$((TUI_LINES - 2))" 3 2>/dev/null || true
-  tput el 2>/dev/null || true
-  at "$((TUI_LINES - 2))" 3 "Log técnico: $(trunc "$REAL_EXEC_LOG_FILE" $((TUI_COLS/2-10)))" "$C_DIM"
+  if [ -t 1 ]; then
+    # Renderizar informações de log no rodapé
+    tput cup "$((TUI_LINES - 2))" 3 2>/dev/null || true
+    tput el 2>/dev/null || true
+    at "$((TUI_LINES - 2))" 3 "Log técnico: $(trunc "$REAL_EXEC_LOG_FILE" $((TUI_COLS/2-10)))" "$C_DIM"
+  fi
 
   input_flush
   local k

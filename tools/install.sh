@@ -214,12 +214,16 @@ while true; do
   esac
 done
 
-printf '\n%s' "$(tput bold 2>/dev/null || true)$(tput setaf 2 2>/dev/null || true)"
+if [ -t 1 ]; then
+  printf '\n%s' "$(tput bold 2>/dev/null || true)$(tput setaf 2 2>/dev/null || true)"
+fi
 if [[ "$UPDATE_MODE" == "true" ]]; then
   printf '✓ Atualização finalizada com sucesso.\n'
 else
   printf '✓ Instalação finalizada com sucesso.\n'
 fi
-printf '%s\n\n' "$(tput sgr0 2>/dev/null || true)"
+if [ -t 1 ]; then
+  printf '%s\n\n' "$(tput sgr0 2>/dev/null || true)"
+fi
 printf '  Contexto : %s\n' "$SELECTED_CONTEXT"
 printf '  Overlay  : %s\n\n' "$SELECTED_OVERLAY"

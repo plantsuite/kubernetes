@@ -73,8 +73,10 @@ tui_init() {
 }
 
 _tui_cleanup() {
-    tput cnorm 2>/dev/null || true
-    tput rmcup 2>/dev/null || true
+    if [ -t 1 ]; then
+        tput cnorm 2>/dev/null || true
+        tput rmcup 2>/dev/null || true
+    fi
     stty echo 2>/dev/null || true
 }
 
