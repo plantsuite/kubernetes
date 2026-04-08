@@ -345,6 +345,33 @@ update_plantsuite_env() {
   fi
   set_env_value "$env_file" "Database__Redis__ConnectionString" "$redis_conn"
 
+  local pg_pass
+  local existing_pg_conn
+  existing_pg_conn=$(grep "^Database__Postgresql__ConnectionString=" "$env_file" 2>/dev/null | cut -d'=' -f2-)
+  pg_pass=$(get_k8s_secret_value "postgresql" "plantsuite-ppgc-pguser-vernemq" "password")
+  if [ -z "$pg_pass" ]; then
+    if [ "$UPDATE_MODE" = true ] && [ -n "$existing_pg_conn" ] && echo "$existing_pg_conn" | grep -q "Password="; then
+      warning "postgresql/plantsuite-ppgc-pguser-vernemq indisponível; preservando senha local do PostgreSQL em modo update."
+      pg_pass=$(echo "$existing_pg_conn" | sed -n 's|.*Password=\([^;]*\).*|\1|p')
+    fi
+  fi
+  if [ -z "$pg_pass" ]; then
+    error "Não foi possível obter a senha do PostgreSQL em postgresql/plantsuite-ppgc-pguser-vernemq."
+    return 1
+  fi
+
+  local pg_conn
+  if [ -n "$existing_pg_conn" ]; then
+    if echo "$existing_pg_conn" | grep -q "Password="; then
+      pg_conn=$(echo "$existing_pg_conn" | sed "s|Password=[^;]*|Password=${pg_pass}|")
+    else
+      pg_conn="${existing_pg_conn};Password=${pg_pass}"
+    fi
+  else
+    pg_conn="Host=plantsuite-ppgc-pgbouncer.postgresql.svc.cluster.local;Port=5432;Database=vernemq;Username=vernemq;Password=${pg_pass};Minimum Pool Size=10;Maximum Pool Size=10"
+  fi
+  set_env_value "$env_file" "Database__Postgresql__ConnectionString" "$pg_conn"
+
   local rmq_user rmq_pass
   local existing_rmq_user existing_rmq_pass
   existing_rmq_user=$(get_env_value "$env_file" "MessageBus__RabbitMQ__User")
