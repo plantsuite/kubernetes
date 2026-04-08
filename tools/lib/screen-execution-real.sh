@@ -62,6 +62,10 @@ real_status_color() {
 
 
 draw_progress_bar() {
+  if ! [ -t 1 ]; then
+    return
+  fi
+
   local row="$1"
   local col="$2"
   local width="$3"
@@ -95,6 +99,10 @@ draw_real_execution_chrome() {
 
 
 draw_real_execution_screen() {
+  if ! [ -t 1 ]; then
+    return
+  fi
+
   local completed="$1"
   local current_idx="$2"
   local detail="$3"
@@ -216,6 +224,10 @@ render_status_footer() {
 start_real_activity_spinner() {
   stop_real_activity_spinner
 
+  if ! [ -t 1 ]; then
+    return
+  fi
+
   (
     local frames='|/-\\'
     local i=0
@@ -260,6 +272,10 @@ stop_real_activity_spinner() {
     REAL_ACTIVITY_SPINNER_PID=""
   fi
 
+  if ! [ -t 1 ]; then
+    return
+  fi
+
   tput cup "$((TUI_LINES - 1))" "$((TUI_COLS - 3))" 2>/dev/null || true
   printf ' '
 }
@@ -278,7 +294,7 @@ real_execution_status_hook() {
   local detail="$1"
   REAL_CURRENT_DETAIL="$detail"
   real_detail_cache_write "$detail"
-  if [[ ${REAL_TUI_RUNNING:-0} -eq 1 ]]; then
+  if [[ ${REAL_TUI_RUNNING:-0} -eq 1 ]] && [ -t 1 ]; then
     render_execution_real_progress_only
   fi
 }

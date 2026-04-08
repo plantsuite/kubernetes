@@ -66,12 +66,6 @@ sync_redis_password_dependents() {
   local redis_password="$1"
   [ -z "$redis_password" ] && return 0
 
-  # VerneMQ depende diretamente da senha do Redis
-  local vernemq_env="k8s/base/vernemq/.env.secret"
-  if [ -f "$vernemq_env" ]; then
-    set_env_value "$vernemq_env" "DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD" "$redis_password"
-  fi
-
   # PlantSuite usa Redis connection string
   local plantsuite_env="k8s/base/plantsuite/.env.secret"
   if [ -f "$plantsuite_env" ]; then
@@ -205,60 +199,40 @@ EOF
   klog "Credenciais do banco de dados atualizadas em $env_file"
 }
 
-# Função para obter as senhas do Redis e PostgreSQL e atualizar o .env.secret do VerneMQ
+# Função para obter as credenciais do PostgreSQL e atualizar o .env.secret do VerneMQ
 update_vernemq_secrets() {
   local env_file="k8s/base/vernemq/.env.secret"
 
-  local existing_redis_password="" existing_postgres_password=""
+  local existing_postgres_host="" existing_postgres_user="" existing_postgres_password=""
   if [ -f "$env_file" ]; then
-    existing_redis_password=$(grep "^DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD=" "$env_file" 2>/dev/null | cut -d'=' -f2-)
+    existing_postgres_host=$(grep "^DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__HOST=" "$env_file" 2>/dev/null | cut -d'=' -f2-)
+    existing_postgres_user=$(grep "^DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__USER=" "$env_file" 2>/dev/null | cut -d'=' -f2-)
     existing_postgres_password=$(grep "^DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__PASSWORD=" "$env_file" 2>/dev/null | cut -d'=' -f2-)
   fi
 
-  if [ "$UPDATE_MODE" = true ] && [ -n "$existing_redis_password" ] && [ -n "$existing_postgres_password" ]; then
+  if [ "$UPDATE_MODE" = true ] && [ -n "$existing_postgres_host" ] && [ -n "$existing_postgres_user" ] && [ -n "$existing_postgres_password" ]; then
     klog "Modo update: preservando secrets existentes do VerneMQ"
     return 0
   fi
 
-  klog "Obtendo senha do Redis para o VerneMQ..."
+  klog "Obtendo credenciais do PostgreSQL para o VerneMQ..."
 
-  local redis_password="$existing_redis_password"
-  if [ -z "$redis_password" ]; then
-    # Preferência: .env.secret local (fonte mais atual durante instalação) -> Secret no cluster.
-    redis_password=$(get_env_value "k8s/base/redis/.env.secret" "password")
-    if [ -z "$redis_password" ]; then
-      redis_password=$(get_k8s_secret_value "redis" "plantsuite-redis-env" "password")
-    fi
-
-    if [ -z "$redis_password" ]; then
-      klog "Senha do Redis não encontrada, gerando uma nova..."
-      local password
-      password=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
-      if [ -z "$password" ]; then
-        error "Não foi possível gerar senha para o Redis."
-        return 1
-      fi
-      echo "password=$password" > "k8s/base/redis/.env.secret"
-      redis_password="$password"
-      sync_redis_password_dependents "$redis_password"
-      klog "Nova senha do Redis gerada e salva."
-    fi
-  fi
-
-  klog "Obtendo senha do PostgreSQL para o VerneMQ..."
-
-  # Fonte da verdade: Secret gerado pelo PostgreSQL Operator.
   local secret_name="plantsuite-ppgc-pguser-vernemq"
   local namespace="postgresql"
-  local postgres_password
+  local postgres_host="plantsuite-ppgc-pgbouncer.postgresql.svc.cluster.local"
+  local postgres_user postgres_password
+
+  postgres_user=$(get_k8s_secret_value "$namespace" "$secret_name" "user")
   postgres_password=$(get_k8s_secret_value "$namespace" "$secret_name" "password")
 
-  if [ -z "$postgres_password" ]; then
-    if [ "$UPDATE_MODE" = true ] && [ -n "$existing_postgres_password" ]; then
-      warning "Secret $namespace/$secret_name indisponível; preservando senha local do VerneMQ em modo update."
+  if [ -z "$postgres_user" ] || [ -z "$postgres_password" ]; then
+    if [ "$UPDATE_MODE" = true ] && [ -n "$existing_postgres_user" ] && [ -n "$existing_postgres_password" ]; then
+      warning "Secret $namespace/$secret_name indisponível; preservando credenciais locais do VerneMQ em modo update."
+      postgres_host="${existing_postgres_host:-postgres_host}"
+      postgres_user="$existing_postgres_user"
       postgres_password="$existing_postgres_password"
     else
-      error "Não foi possível obter a senha do PostgreSQL do secret $secret_name no namespace $namespace."
+      error "Não foi possível obter as credenciais do secret $secret_name no namespace $namespace."
       return 1
     fi
   fi
@@ -268,12 +242,11 @@ update_vernemq_secrets() {
     return 1
   fi
 
-  # Usa helper de .env para evitar problemas de escaping com sed em senhas contendo
-  # caracteres especiais (/, &, |, etc.).
-  set_env_value "$env_file" "DOCKER_VERNEMQ_VMQ_DIVERSITY__REDIS__PASSWORD" "$redis_password"
+  set_env_value "$env_file" "DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__HOST" "$postgres_host"
+  set_env_value "$env_file" "DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__USER" "$postgres_user"
   set_env_value "$env_file" "DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__PASSWORD" "$postgres_password"
 
-  klog "Senhas do Redis e PostgreSQL atualizadas no VerneMQ com sucesso."
+  klog "Credenciais do PostgreSQL atualizadas no VerneMQ com sucesso."
 }
 
 # Função para atualizar k8s/base/plantsuite/.env.secret com segredos de MongoDB, RabbitMQ, Keycloak e gerar senha MQTT
@@ -439,6 +412,107 @@ update_plantsuite_env() {
   set_env_value "$env_file" "Keycloak__IntrospectionClientSecret" "$kc_intro"
 
   klog "Arquivo atualizado: $env_file"
+}
+
+# TODO TEMPORÁRIO (MES): Extrai o tenantId do certificado de licença.
+# Os serviços MES antigos (controlstations, gateway, wd, production) não concatenam
+# tenantId ao usuário MQTT no código. Esse workaround permite ao instalador
+# injetar a env var correta em formato "{tenantId}:system" diretamente no Kubernetes.
+# NOTA: Aplica o patch via kubectl set env após o deploy - nenhum arquivo YAML é alterado.
+# REMOVER quando os serviços migrarem para o padrão novo.
+extract_tenant_id_from_license() {
+  local license_file="k8s/base/plantsuite/license.crt"
+  if [ ! -f "$license_file" ]; then
+    error "Arquivo de licença não encontrado: $license_file"
+    return 1
+  fi
+
+  local tenant_id
+  tenant_id=$(
+    sed -n '1,/-----END CERTIFICATE-----/p' "$license_file" \
+      | openssl x509 -subject -noout 2>/dev/null \
+      | sed -n 's/.*O = \([^,]*\),.*/\1/p'
+  )
+
+  if [ -z "$tenant_id" ]; then
+    error "Não foi possível extrair tenantId do certificado de licença."
+    return 1
+  fi
+
+  echo "$tenant_id"
+}
+
+# TODO TEMPORÁRIO (MES): Injeta a env var MQTT.User diretamente no Kubernetes via
+# kubectl set env. Isso é necessário porque os serviços MES antigos não concatenam
+# tenantId ao usuário MQTT no código e o Configuration do .NET carrega env vars
+# após o appsettings.json, então o secret plantsuite-env (com User=system) sobrescreve.
+# O patch é feito em 3 etapas: scale-to-0 → kubectl set env → scale-back.
+# Isso evita que 2 pods subam em paralelo durante o rollout (用户体验更好).
+# NOTA: gateway e wd têm container sidecar UI - usamos -c para targetar só o principal.
+# REMOVER quando os serviços migrarem para o padrão novo.
+patch_mes_mqtt_user_env() {
+  local svc="$1"
+
+  case "$svc" in
+    controlstations|gateway|wd|production) ;;
+    *) return 0 ;;
+  esac
+
+  local container env_var
+  case "$svc" in
+    controlstations) container="controlstations"; env_var="MessageBus__MQTT__User" ;;
+    gateway)         container="gateway";         env_var="MessageBus__MQTT__User" ;;
+    wd)              container="wd";              env_var="MQTT__User" ;;
+    production)      container="production";      env_var="MessageBus__MQTT__User" ;;
+  esac
+
+  local tenant_id
+  tenant_id=$(extract_tenant_id_from_license) || return $?
+
+  local mqtt_user="${tenant_id}:system"
+
+  local current_replicas
+  current_replicas=$(kubectl get deployment "${svc}" -n plantsuite -o jsonpath='{.spec.replicas}' 2>/dev/null)
+  if [ -z "$current_replicas" ] || [ "$current_replicas" -eq 0 ]; then
+    current_replicas=1
+  fi
+
+  klog "Scalerando $svc para 0 antes do patch de env var..."
+  kubectl scale deployment "${svc}" -n plantsuite --replicas=0 2>&1
+  if [ $? -ne 0 ]; then
+    error "Falha ao escalar $svc para 0"
+    return 1
+  fi
+
+  klog "Aguardando pods de $svc terminarem..."
+  local max_wait=120
+  local waited=0
+  while [ "$waited" -lt "$max_wait" ]; do
+    local ready
+    ready=$(kubectl get deployment "${svc}" -n plantsuite -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if [ "$ready" = "0" ] || [ -z "$ready" ]; then
+      break
+    fi
+    sleep 2
+    waited=$((waited + 2))
+  done
+
+  klog "Aplicando patch MQTT.User para $svc: $mqtt_user"
+  kubectl set env "deployment/${svc}" -n plantsuite "-c" "$container" "${env_var}=${mqtt_user}" 2>&1
+  if [ $? -ne 0 ]; then
+    error "Falha ao injetar MQTT.User para $svc"
+    return 1
+  fi
+
+  klog "Restaurando $svc para $current_replicas réplicas..."
+  kubectl scale deployment "${svc}" -n plantsuite --replicas="$current_replicas" 2>&1
+  if [ $? -ne 0 ]; then
+    error "Falha ao restaurar réplicas de $svc"
+    return 1
+  fi
+
+  klog "MQTT.User injetado via kubectl para $svc: $mqtt_user"
+  return 0
 }
 
 # Função para limpar senhas dos arquivos .env.secret

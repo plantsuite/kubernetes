@@ -11,6 +11,16 @@
 # 0: modo não-interativo (ex.: TUI) retorna falha no timeout.
 K8S_WAIT_INTERACTIVE=${K8S_WAIT_INTERACTIVE:-1}
 
+_is_terminal() {
+  [ -t 1 ]
+}
+
+_clear_line() {
+  if _is_terminal; then
+    _clear_line
+  fi
+}
+
 # Aguarda um intervalo fixo exibindo spinner sem prefixo e limpa a linha ao concluir
 wait_with_spinner() {
   local seconds="$1"
@@ -22,12 +32,16 @@ wait_with_spinner() {
   while [ $elapsed -lt $seconds ]; do
     idx=$(( (elapsed / interval) % 4 ))
     remaining=$((seconds - elapsed))
-    cl_printf "%s (restam %ss) %s" "$message" "$remaining" "${spinner[$idx]}"
+    if _is_terminal; then
+      cl_printf "%s (restam %ss) %s" "$message" "$remaining" "${spinner[$idx]}"
+    else
+      printf "%s (restam %ss) %s" "$message" "$remaining" "${spinner[$idx]}"
+    fi
     sleep $interval
     elapsed=$((elapsed + interval))
   done
 
-  printf "\r\033[K"
+  _clear_line
 }
 
 # Função para perguntar ao usuário como proceder quando um recurso não fica pronto
@@ -91,17 +105,21 @@ wait_deployment_ready() {
     while [ $elapsed -lt $timeout ]; do
       ready=$(kubectl get deploy "$deploy_name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null)
       if [ "$ready" = "True" ]; then
-        printf "\r\033[K"
+        _clear_line
         klog "$display_name está pronto."
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      printf "\r\033[KAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      if _is_terminal; then
+        printf "\r\033[KAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      else
+        printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      fi
       sleep $interval
       elapsed=$((elapsed + interval))
     done
 
-    printf "\r\033[K"
+    _clear_line
     handle_timeout "$display_name"
     local action=$?
     if [ $action -eq 0 ]; then
@@ -137,17 +155,21 @@ wait_daemonset_ready() {
       ready=$(kubectl get ds "$daemonset_name" -n "$namespace" -o jsonpath='{.status.numberReady}' 2>/dev/null)
 
       if [ -n "$desired" ] && [ -n "$ready" ] && [ "$desired" -eq "$ready" ] && [ "$ready" -gt 0 ]; then
-        printf "\r\033[K"
+        _clear_line
         klog "$display_name está pronto."
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      printf "\r\033[KAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      if _is_terminal; then
+        printf "\r\033[KAguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      else
+        printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      fi
       sleep $interval
       elapsed=$((elapsed + interval))
     done
 
-    printf "\r\033[K"
+    _clear_line
     handle_timeout "$display_name"
     local action=$?
     if [ $action -eq 0 ]; then
@@ -182,17 +204,21 @@ wait_statefulset_ready() {
       desired=$(kubectl get sts "$sts_name" -n "$namespace" -o jsonpath='{.spec.replicas}' 2>/dev/null)
       ready=$(kubectl get sts "$sts_name" -n "$namespace" -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
       if [ -n "$desired" ] && [ -n "$ready" ] && [ "$desired" = "$ready" ] && [ "$ready" -gt 0 ]; then
-        printf "\r\033[K"
+        _clear_line
         klog "$display_name está pronto."
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      if _is_terminal; then
+        cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      else
+        printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      fi
       sleep $interval
       elapsed=$((elapsed + interval))
     done
 
-    printf "\r\033[K"
+    _clear_line
     handle_timeout "$display_name"
     local action=$?
     if [ $action -eq 0 ]; then
@@ -218,17 +244,21 @@ wait_cert_manager_webhook_ready() {
     while [ $elapsed -lt $timeout ]; do
       endpoints=$(kubectl get endpoints "$service" -n "$namespace" -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null)
       if [ -n "$endpoints" ]; then
-        printf "\r\033[K"
+        _clear_line
         klog "cert-manager webhook está pronto."
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      cl_printf "Aguardando cert-manager webhook... %s" "${spinner[$idx]}"
+      if _is_terminal; then
+        cl_printf "Aguardando cert-manager webhook... %s" "${spinner[$idx]}"
+      else
+        printf "Aguardando cert-manager webhook... %s" "${spinner[$idx]}"
+      fi
       sleep $interval
       elapsed=$((elapsed + interval))
     done
 
-    printf "\r\033[K"
+    _clear_line
     handle_timeout "cert-manager webhook"
     local action=$?
     if [ $action -eq 0 ]; then
@@ -255,17 +285,21 @@ wait_psmdb_ready() {
     while [ $elapsed -lt $timeout ]; do
       state=$(kubectl get psmdb "$name" -n "$namespace" -o jsonpath='{.status.state}' 2>/dev/null)
       if [ "$state" = "ready" ] || [ "$state" = "clusterInitializing" ]; then
-        printf "\r\033[K"
+        _clear_line
         klog "$display_name está pronto (estado: $state)."
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      if _is_terminal; then
+        cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      else
+        printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      fi
       sleep $interval
       elapsed=$((elapsed + interval))
     done
 
-    printf "\r\033[K"
+    _clear_line
     handle_timeout "$display_name"
     local action=$?
     if [ $action -eq 0 ]; then
@@ -292,17 +326,21 @@ wait_postgrescluster_ready() {
     while [ $elapsed -lt $timeout ]; do
       state=$(kubectl get perconapgcluster "$name" -n "$namespace" -o jsonpath='{.status.state}' 2>/dev/null)
       if [ "$state" = "ready" ] || [ "$state" = "updating" ]; then
-        printf "\r\033[K"
+        _clear_line
         klog "$display_name está pronto (estado: $state)."
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      if _is_terminal; then
+        cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      else
+        printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      fi
       sleep $interval
       elapsed=$((elapsed + interval))
     done
 
-    printf "\r\033[K"
+    _clear_line
     handle_timeout "$display_name"
     local action=$?
     if [ $action -eq 0 ]; then
@@ -329,17 +367,21 @@ wait_keycloak_ready() {
     while [ $elapsed -lt $timeout ]; do
       status=$(kubectl get keycloak "$name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)
       if [ "$status" = "True" ]; then
-        printf "\r\033[K"
+        _clear_line
         klog "$display_name está pronto."
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      if _is_terminal; then
+        cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      else
+        printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      fi
       sleep $interval
       elapsed=$((elapsed + interval))
     done
 
-    printf "\r\033[K"
+    _clear_line
     handle_timeout "$display_name"
     local action=$?
     if [ $action -eq 0 ]; then
@@ -366,17 +408,21 @@ wait_keycloak_realm_ready() {
     while [ $elapsed -lt $timeout ]; do
       status=$(kubectl get keycloakrealmimport "$name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="Done")].status}' 2>/dev/null)
       if [ "$status" = "True" ]; then
-        printf "\r\033[K"
+        _clear_line
         klog "$display_name está pronto."
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      if _is_terminal; then
+        cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      else
+        printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      fi
       sleep $interval
       elapsed=$((elapsed + interval))
     done
 
-    printf "\r\033[K"
+    _clear_line
     handle_timeout "$display_name"
     local action=$?
     if [ $action -eq 0 ]; then
@@ -403,17 +449,21 @@ wait_rabbitmq_ready() {
     while [ $elapsed -lt $timeout ]; do
       status=$(kubectl get rabbitmqcluster "$name" -n "$namespace" -o jsonpath='{.status.conditions[?(@.type=="AllReplicasReady")].status}' 2>/dev/null)
       if [ "$status" = "True" ]; then
-        printf "\r\033[K"
+        _clear_line
         klog "$display_name está pronto."
         return 0
       fi
       idx=$(( (elapsed / interval) % 4 ))
-      cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      if _is_terminal; then
+        cl_printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      else
+        printf "Aguardando %s ficar pronto... %s" "$display_name" "${spinner[$idx]}"
+      fi
       sleep $interval
       elapsed=$((elapsed + interval))
     done
 
-    printf "\r\033[K"
+    _clear_line
     handle_timeout "$display_name"
     if [ $? -eq 0 ]; then
       return 0
