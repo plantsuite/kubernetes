@@ -111,7 +111,19 @@ kubectl get svc -n istio-ingress gateway
 Adicione as entradas no arquivo `/etc/hosts` (Linux/macOS) ou `C:\Windows\System32\drivers\etc\hosts` (Windows), substituindo `<INGRESS_IP>` pelo IP obtido acima:
 
 ```
-<INGRESS_IP> portal.plantsuite.local account.plantsuite.local aspire-dashboard.plantsuite.local devices.plantsuite.local entities.plantsuite.local queries.plantsuite.local tenants.plantsuite.local dashboards.plantsuite.local notifications.plantsuite.local alarms.plantsuite.local spc.plantsuite.local timeseries.plantsuite.local mqtt.plantsuite.local
+<INGRESS_IP> account.plantsuite.local
+<INGRESS_IP> alarms.plantsuite.local
+<INGRESS_IP> aspire-dashboard.plantsuite.local
+<INGRESS_IP> dashboards.plantsuite.local
+<INGRESS_IP> devices.plantsuite.local
+<INGRESS_IP> entities.plantsuite.local
+<INGRESS_IP> mqtt.plantsuite.local
+<INGRESS_IP> notifications.plantsuite.local
+<INGRESS_IP> portal.plantsuite.local
+<INGRESS_IP> queries.plantsuite.local
+<INGRESS_IP> spc.plantsuite.local
+<INGRESS_IP> tenants.plantsuite.local
+<INGRESS_IP> timeseries.plantsuite.local
 ```
 
 ### Confiar no Certificado SSL
