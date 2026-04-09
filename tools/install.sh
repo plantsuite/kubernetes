@@ -135,9 +135,11 @@ while true; do
       ;;
     30)
       : > "$_TMPFILE"
-      UPDATE_SELECTED_INFRA=""
+      UPDATE_SELECTED_INFRA_APPLY=""
+      UPDATE_SELECTED_INFRA_DELETE=""
       UPDATE_SELECTED_PLANTSUITE_APPLY=""
       UPDATE_SELECTED_PLANTSUITE_DELETE=""
+      REMOVE_ALL_MODE=false
       RESULT_FILE="$_TMPFILE" run_screen_update_selection
       UPDATE_SELECTION_RESULT=$(cat "$_TMPFILE" 2>/dev/null || true)
       [[ "$UPDATE_SELECTION_RESULT" == "__QUIT__" ]] && exit 0
@@ -146,34 +148,40 @@ while true; do
         continue
       fi
 
-      if [[ -z "$UPDATE_SELECTED_INFRA" && -z "$UPDATE_SELECTED_PLANTSUITE_APPLY" && -z "$UPDATE_SELECTED_PLANTSUITE_DELETE" ]]; then
+      if [[ -z "$UPDATE_SELECTED_INFRA_APPLY" && -z "$UPDATE_SELECTED_INFRA_DELETE" && -z "$UPDATE_SELECTED_PLANTSUITE_APPLY" && -z "$UPDATE_SELECTED_PLANTSUITE_DELETE" ]]; then
         # Fallback: parse resiliente do arquivo/string de retorno da tela.
         while IFS='=' read -r key value; do
           value="${value%$'\r'}"
           case "$key" in
-            APPLY_INFRA) UPDATE_SELECTED_INFRA="$value" ;;
+            APPLY_INFRA) UPDATE_SELECTED_INFRA_APPLY="$value" ;;
+            DELETE_INFRA) UPDATE_SELECTED_INFRA_DELETE="$value" ;;
             APPLY_SERVICES) UPDATE_SELECTED_PLANTSUITE_APPLY="$value" ;;
             DELETE_SERVICES) UPDATE_SELECTED_PLANTSUITE_DELETE="$value" ;;
+            REMOVE_ALL) [[ "$value" == "true" ]] && REMOVE_ALL_MODE=true ;;
           esac
         done < "$_TMPFILE"
 
-        if [[ -z "$UPDATE_SELECTED_INFRA" && -z "$UPDATE_SELECTED_PLANTSUITE_APPLY" && -z "$UPDATE_SELECTED_PLANTSUITE_DELETE" && "$UPDATE_SELECTION_RESULT" == *"APPLY_"* ]]; then
+        if [[ -z "$UPDATE_SELECTED_INFRA_APPLY" && -z "$UPDATE_SELECTED_INFRA_DELETE" && -z "$UPDATE_SELECTED_PLANTSUITE_APPLY" && -z "$UPDATE_SELECTED_PLANTSUITE_DELETE" && "$UPDATE_SELECTION_RESULT" == *"APPLY_"* ]]; then
           while IFS='=' read -r key value; do
             value="${value%$'\r'}"
             case "$key" in
-              APPLY_INFRA) UPDATE_SELECTED_INFRA="$value" ;;
+              APPLY_INFRA) UPDATE_SELECTED_INFRA_APPLY="$value" ;;
+              DELETE_INFRA) UPDATE_SELECTED_INFRA_DELETE="$value" ;;
               APPLY_SERVICES) UPDATE_SELECTED_PLANTSUITE_APPLY="$value" ;;
               DELETE_SERVICES) UPDATE_SELECTED_PLANTSUITE_DELETE="$value" ;;
+              REMOVE_ALL) [[ "$value" == "true" ]] && REMOVE_ALL_MODE=true ;;
             esac
           done <<< "$UPDATE_SELECTION_RESULT"
         fi
       fi
 
-      export UPDATE_SELECTED_INFRA
+      export UPDATE_SELECTED_INFRA_APPLY
+      export UPDATE_SELECTED_INFRA_DELETE
       export UPDATE_SELECTED_PLANTSUITE_APPLY
       export UPDATE_SELECTED_PLANTSUITE_DELETE
+      export REMOVE_ALL_MODE
 
-      if [[ -z "$UPDATE_SELECTED_INFRA" && -z "$UPDATE_SELECTED_PLANTSUITE_APPLY" && -z "$UPDATE_SELECTED_PLANTSUITE_DELETE" ]]; then
+      if [[ -z "$UPDATE_SELECTED_INFRA_APPLY" && -z "$UPDATE_SELECTED_INFRA_DELETE" && -z "$UPDATE_SELECTED_PLANTSUITE_APPLY" && -z "$UPDATE_SELECTED_PLANTSUITE_DELETE" ]]; then
         printf '\n[INFO] Nenhuma ação de atualização selecionada. Voltando para a seleção.\n\n'
         step=30
         continue

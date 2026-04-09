@@ -122,9 +122,6 @@ draw_services_screen() {
         [[ ${SVC_SELECTED[$i]} -eq 1 ]] && ((selected_count++))
     done
 
-    local status="  Selecionados: $selected_count/${SVC_COUNT}   |   Infra: ${INFRA_COUNT} componentes sempre incluídos"
-    at "$((tbl_top+tbl_h))" 0 "$(trunc "$status" $((TUI_COLS-2)))" "$C_DIM"
-
     local hint="  ↑↓ navegar   space marcar   i=iot   m=mes   t=tudo   c=limpar   [*]=obrigatório   b voltar   enter confirmar   q sair"
     tput cup "$((TUI_LINES - 1))" 0 2>/dev/null || true
     tput el 2>/dev/null || true

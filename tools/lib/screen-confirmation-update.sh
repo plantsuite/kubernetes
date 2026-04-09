@@ -56,28 +56,41 @@ draw_update_confirmation_screen() {
   draw_box "$top" 1 "$h" "$((TUI_COLS-2))" "Revisão da Atualização"
 
   local row=$((top + 2))
-  local max_rows=4
 
   at "$row" 3 "Contexto: ${SELECTED_CONTEXT}" "$C_DIM"
   row=$((row + 1))
   at "$row" 3 "Overlay: ${SELECTED_OVERLAY}" "$C_DIM"
   row=$((row + 2))
 
-  local infra_count svc_apply_count svc_delete_count
-  infra_count=$(count_words "$UPDATE_SELECTED_INFRA")
-  svc_apply_count=$(count_words "$UPDATE_SELECTED_PLANTSUITE_APPLY")
-  svc_delete_count=$(count_words "$UPDATE_SELECTED_PLANTSUITE_DELETE")
+  if [[ "${REMOVE_ALL_MODE:-false}" == "true" ]]; then
+    at "$row" 3 "⚠️  REMOÇÃO COMPLETA DO SISTEMA SELECIONADA" "$C_ERROR"
+    row=$((row + 1))
+    at "$row" 3 "Todos os serviços e infraestrutura serão removidos!" "$C_WARN"
+    row=$((row + 2))
+  fi
 
-  at "$row" 3 "Resumo: infra=$infra_count  aplicar-serviços=$svc_apply_count  remover-serviços=$svc_delete_count" "$C_DIM"
-  row=$((row + 2))
+  if [[ "${REMOVE_ALL_MODE:-false}" != "true" ]]; then
+    local infra_apply_count infra_delete_count svc_apply_count svc_delete_count
+    infra_apply_count=$(count_words "$UPDATE_SELECTED_INFRA_APPLY")
+    infra_delete_count=$(count_words "$UPDATE_SELECTED_INFRA_DELETE")
+    svc_apply_count=$(count_words "$UPDATE_SELECTED_PLANTSUITE_APPLY")
+    svc_delete_count=$(count_words "$UPDATE_SELECTED_PLANTSUITE_DELETE")
 
-  draw_word_list "$row" "Infra para atualizar:" "$UPDATE_SELECTED_INFRA" "$C_DIM" "$max_rows"
-  row=$((_WORD_LIST_ROW + 1))
+    at "$row" 3 "Resumo: infra-aplicar=$infra_apply_count  infra-remover=$infra_delete_count  svc-aplicar=$svc_apply_count  svc-remover=$svc_delete_count" "$C_DIM"
+    row=$((row + 2))
 
-  draw_word_list "$row" "Serviços para instalar/atualizar:" "$UPDATE_SELECTED_PLANTSUITE_APPLY" "$C_WARN" "$max_rows"
-  row=$((_WORD_LIST_ROW + 1))
+    local max_rows=4
+    draw_word_list "$row" "Infra para atualizar:" "$UPDATE_SELECTED_INFRA_APPLY" "$C_DIM" "$max_rows"
+    row=$((_WORD_LIST_ROW + 1))
 
-  draw_word_list "$row" "Serviços para remover (ATENÇÃO):" "$UPDATE_SELECTED_PLANTSUITE_DELETE" "$C_ERROR" "$max_rows"
+    draw_word_list "$row" "Infra para remover (ATENÇÃO):" "$UPDATE_SELECTED_INFRA_DELETE" "$C_ERROR" "$max_rows"
+    row=$((_WORD_LIST_ROW + 1))
+
+    draw_word_list "$row" "Serviços para instalar/atualizar:" "$UPDATE_SELECTED_PLANTSUITE_APPLY" "$C_WARN" "$max_rows"
+    row=$((_WORD_LIST_ROW + 1))
+
+    draw_word_list "$row" "Serviços para remover (ATENÇÃO):" "$UPDATE_SELECTED_PLANTSUITE_DELETE" "$C_ERROR" "$max_rows"
+  fi
 
   tput cup "$((TUI_LINES - 1))" 0 2>/dev/null || true
   tput el 2>/dev/null || true
@@ -95,18 +108,17 @@ run_screen_update_confirmation() {
     echo "Contexto: $SELECTED_CONTEXT"
     echo "Overlay : $SELECTED_OVERLAY"
     echo ""
-    echo "Infra para atualizar: ${UPDATE_SELECTED_INFRA:-nenhum}"
+
+    if [[ "${REMOVE_ALL_MODE:-false}" == "true" ]]; then
+      echo "⚠️  REMOÇÃO COMPLETA DO SISTEMA SELECIONADA"
+      echo "Todos os serviços e infraestrutura serão removidos!"
+      echo ""
+    fi
+
+    echo "Infra para atualizar: ${UPDATE_SELECTED_INFRA_APPLY:-nenhum}"
+    echo "Infra para remover: ${UPDATE_SELECTED_INFRA_DELETE:-nenhum}"
     echo "Serviços para instalar/atualizar: ${UPDATE_SELECTED_PLANTSUITE_APPLY:-nenhum}"
     echo "Serviços para remover: ${UPDATE_SELECTED_PLANTSUITE_DELETE:-nenhum}"
-
-    if [[ -n "$UPDATE_SELECTED_PLANTSUITE_DELETE" ]]; then
-      echo ""
-      read -rp "Digite REMOVER para confirmar remoções: " remove_confirm
-      if [[ "$remove_confirm" != "REMOVER" ]]; then
-        [[ -n "${RESULT_FILE:-}" ]] && echo "__BACK__" > "$RESULT_FILE" || echo "__BACK__"
-        return
-      fi
-    fi
 
     echo ""
     read -rp "Executar atualização? (s/n/b=voltar/q=sair): " -n 1 confirm
@@ -140,19 +152,6 @@ run_screen_update_confirmation() {
     key=$(read_key) || break
     case "$key" in
       ENTER)
-        if [[ -n "$UPDATE_SELECTED_PLANTSUITE_DELETE" ]]; then
-          local prompt="Confirme remoção digitando REMOVER: "
-          tput cup "$((TUI_LINES - 2))" 3 2>/dev/null || true
-          tput el 2>/dev/null || true
-          printf '%s%s%s' "$C_ERROR" "$prompt" "$C_RESET"
-          stty echo 2>/dev/null || true
-          local remove_confirm
-          IFS= read -r remove_confirm
-          stty -echo 2>/dev/null || true
-          if [[ "$remove_confirm" != "REMOVER" ]]; then
-            continue
-          fi
-        fi
         running=0
         ;;
       b)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tela 2/4 — Seleção do Overlay
-# Apresenta os overlays disponíveis (k8s/overlays/*) e retorna o escolhido.
+# Apresenta os Overlays Kustomize (k8s/overlays/*) e retorna o escolhido.
 # Espera a variável de ambiente SELECTED_CONTEXT para exibir breadcrumb.
 LAYOUT_NAME="2/4 Overlay"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -78,7 +78,7 @@ draw_overlay_screen() {
     local tbl_h=$((TUI_LINES - tbl_top - 4))
     [[ $tbl_h -lt 6 ]] && tbl_h=6
 
-    draw_box "$tbl_top" 1 "$tbl_h" "$((TUI_COLS-2))" "Overlays Disponíveis"
+    draw_box "$tbl_top" 1 "$tbl_h" "$((TUI_COLS-2))" "Overlays Kustomize"
 
     local w_name=26
     local w_components
@@ -96,7 +96,7 @@ draw_overlay_screen() {
     local i
     for ((i=0; i<MENU_COUNT; i++)); do
         local row
-        local overlay_cell="${OVL_NAMES[$i]} (${OVL_ADJUSTED_COUNT[$i]})"
+        local overlay_cell="${OVL_NAMES[$i]}"
         printf -v row "  %-${w_name}s  %-${w_components}s" \
             "$(trunc "$overlay_cell" $w_name)" \
             "$(trunc "${OVL_COMPONENTS[$i]}"  $w_components)"
@@ -107,7 +107,8 @@ draw_overlay_screen() {
         at "$((tbl_top+3+i))" 2 "$(trunc "$row" $((TUI_COLS-4)))" "$attr"
     done
 
-    local status="  Selecionado: ${OVL_NAMES[$sel]}   componentes ajustados: ${OVL_ADJUSTED_COUNT[$sel]}"
+    # Linha de status abaixo da tabela (mantém contagem de componentes ajustados)
+    local status="  Componentes ajustados ${OVL_ADJUSTED_COUNT[$sel]}"
     clear_area "$((tbl_top+tbl_h))" 0 "$((TUI_COLS-2))"
     at "$((tbl_top+tbl_h))" 0 "$(trunc "$status" $((TUI_COLS-2)))" "$C_DIM"
 
@@ -115,7 +116,7 @@ draw_overlay_screen() {
     tput cup "$((TUI_LINES - 1))" 0 2>/dev/null || true
     tput el 2>/dev/null || true
     colorize_hint "$(trunc "$hint" $((TUI_COLS / 2)))"
-    at "$((TUI_LINES - 1))" $((TUI_COLS / 2)) "$((sel+1))/${MENU_COUNT} overlays" "$C_ACCENT" $((TUI_COLS / 2 - 2))
+
 }
 
 run_screen_overlay() {

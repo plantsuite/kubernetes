@@ -15,7 +15,12 @@ draw_context_screen() {
         local top=3 h=$((TUI_LINES - 6))
         draw_box "$top" 1 "$h" "$((TUI_COLS-2))" "Contextos"
         draw_list "$((top+1))" 2 "$((h-2))" "$((TUI_COLS-4))" "$sel"
-        draw_footer "$((sel+1))/${CTX_COUNT} contextos"
+# Linha de status abaixo da tabela (mantém apenas API que não está na tabela)
+    local status_row=$((tbl_top + tbl_h))
+    local status="  API: ${CTX_SERVERS[$sel]}"
+    at "$status_row" 0 "$(trunc "$status" $((TUI_COLS-2)))" "$C_DIM"
+
+    draw_footer ""
         return
     fi
 
@@ -58,12 +63,12 @@ draw_context_screen() {
         ((i++)) || true
     done
 
-    # Linha de status abaixo da tabela
+    # Linha de status abaixo da tabela (mantém apenas API que não está na tabela)
     local status_row=$((tbl_top + tbl_h))
-    local status="  Selecionado: ${CTX_NAMES[$sel]}   cluster: ${CTX_CLUSTERS[$sel]}   API: ${CTX_SERVERS[$sel]}"
+    local status="  API: ${CTX_SERVERS[$sel]}"
     at "$status_row" 0 "$(trunc "$status" $((TUI_COLS-2)))" "$C_DIM"
 
-    draw_footer "$((sel+1))/${CTX_COUNT} contextos"
+    draw_footer ""
 }
 
 run_screen_context() {

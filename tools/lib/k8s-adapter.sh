@@ -361,16 +361,217 @@ real_delete_plantsuite_service() {
   component_path=$(real_get_component_path "$svc_base")
 
   real_set_status_detail "Removendo plantsuite/$svc..."
+  klog "Removendo plantsuite/$svc..."
 
   local output
   output=$(kubectl kustomize --enable-helm "$component_path" 2>&1 | kubectl delete -f - --ignore-not-found=true 2>&1)
   if [[ $? -ne 0 ]]; then
     REAL_LAST_ERROR="Falha ao remover plantsuite/$svc"
     REAL_LAST_DETAIL="$output"
+    klog "Erro ao remover plantsuite/$svc"
     return 30
   fi
 
   real_set_status_detail "plantsuite/$svc removido"
+  klog "plantsuite/$svc removido com sucesso"
+  return 0
+}
+
+real_wait_namespace_deleted() {
+  local namespace="$1"
+  local timeout=120
+  local elapsed=0
+  local interval=2
+  local spinner=("|" "/" "-" "\\")
+
+  if ! kubectl get namespace "$namespace" &>/dev/null; then
+    klog "Namespace $namespace não existe ou já foi removido."
+    return 0
+  fi
+
+  while [[ $elapsed -lt $timeout ]]; do
+    if ! kubectl get namespace "$namespace" &>/dev/null; then
+      printf "\r\033[K"
+      klog "Namespace $namespace foi removido."
+      return 0
+    fi
+    idx=$(( (elapsed / interval) % 4 ))
+    printf "\rAguardando namespace %s ser removido... %s" "$namespace" "${spinner[$idx]}"
+    sleep $interval
+    elapsed=$((elapsed + interval))
+  done
+
+  printf "\r\033[K"
+  warning "Namespace $namespace não foi removido no tempo esperado. Continuando..."
+  return 0
+}
+
+real_wait_statefulset_deleted() {
+  local namespace="$1"
+  local selector="$2"
+  local name="$3"
+  local timeout=120
+  local elapsed=0
+  local interval=2
+  local spinner=("|" "/" "-" "\\")
+
+  local sts_name
+  sts_name=$(kubectl get sts -n "$namespace" -l "$selector" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  if [[ -z "$sts_name" ]]; then
+    sts_name="$name"
+  fi
+
+  if ! kubectl get sts "$sts_name" -n "$namespace" &>/dev/null; then
+    klog "StatefulSet $sts_name não existe ou já foi removido."
+    return 0
+  fi
+
+  while [[ $elapsed -lt $timeout ]]; do
+    if ! kubectl get sts "$sts_name" -n "$namespace" &>/dev/null; then
+      printf "\r\033[K"
+      klog "StatefulSet $sts_name removido."
+      return 0
+    fi
+    idx=$(( (elapsed / interval) % 4 ))
+    printf "\rAguardando StatefulSet %s ser removido... %s" "$sts_name" "${spinner[$idx]}"
+    sleep $interval
+    elapsed=$((elapsed + interval))
+  done
+
+  printf "\r\033[K"
+  warning "StatefulSet $sts_name não foi removido no tempo esperado. Continuando..."
+  return 0
+}
+
+real_wait_cr_deleted() {
+  local kind="$1"
+  local name="$2"
+  local namespace="$3"
+  local timeout=120
+  local elapsed=0
+  local interval=2
+  local spinner=("|" "/" "-" "\\")
+
+  if ! kubectl get "$kind" "$name" -n "$namespace" &>/dev/null; then
+    klog "$kind $name não existe ou já foi removido."
+    return 0
+  fi
+
+  while [[ $elapsed -lt $timeout ]]; do
+    if ! kubectl get "$kind" "$name" -n "$namespace" &>/dev/null; then
+      printf "\r\033[K"
+      klog "$kind $name removido."
+      return 0
+    fi
+    idx=$(( (elapsed / interval) % 4 ))
+    printf "\rAguardando %s %s ser removido... %s" "$kind" "$name" "${spinner[$idx]}"
+    sleep $interval
+    elapsed=$((elapsed + interval))
+  done
+
+  printf "\r\033[K"
+  warning "$kind $name não foi removido no tempo esperado. Continuando..."
+  return 0
+}
+
+real_remove_cr_finalizers() {
+  local kind="$1"
+  local name="$2"
+  local namespace="$3"
+
+  local finalizers
+  finalizers=$(kubectl get "$kind" "$name" -n "$namespace" -o jsonpath='{.metadata.finalizers}' 2>/dev/null || true)
+
+  if [[ -z "$finalizers" ]]; then
+    klog "$kind $name não tem finalizers ou já foi removido."
+    return 0
+  fi
+
+  klog "Removendo finalizers de $kind $name (operador pode estar com problemas)..."
+  kubectl patch "$kind" "$name" -n "$namespace" --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]' 2>&1 || {
+    warning "Falha ao remover finalizers de $kind $name"
+    return 1
+  }
+
+  klog "Finalizers removidos de $kind $name."
+  return 0
+}
+
+real_delete_cr_with_finalizer_handling() {
+  local kind="$1"
+  local name="$2"
+  local namespace="$3"
+
+  real_set_status_detail "Removendo $kind $name..."
+  klog "Removendo $kind $name"
+
+  local output
+  output=$(kubectl delete "$kind" "$name" -n "$namespace" --ignore-not-found=true 2>&1)
+  local delete_exit=$?
+
+  if [[ $delete_exit -eq 0 ]] || echo "$output" | grep -q "NotFound"; then
+    klog "$kind $name deletado com sucesso."
+    return 0
+  fi
+
+  warning " Deleção de $kind $name pode ter ficado presa. Aguardando..."
+  real_wait_cr_deleted "$kind" "$name" "$namespace"
+  local wait_result=$?
+
+  if [[ $wait_result -eq 0 ]]; then
+    return 0
+  fi
+
+  if kubectl get "$kind" "$name" -n "$namespace" &>/dev/null; then
+    real_remove_cr_finalizers "$kind" "$name" "$namespace"
+    sleep 2
+    kubectl delete "$kind" "$name" -n "$namespace" --ignore-not-found=true 2>&1
+  fi
+
+  return 0
+}
+
+real_delete_infra_component() {
+  local base_path="$1"
+  local name="$2"
+
+  local component_path
+  component_path=$(real_get_component_path "$base_path")
+
+  real_set_status_detail "Removendo $name..."
+  klog "Removendo $name (path: $component_path)"
+
+  local output
+  output=$(kubectl kustomize --enable-helm "$component_path" 2>&1 | kubectl delete -f - --ignore-not-found=true 2>&1)
+  if [[ $? -ne 0 ]]; then
+    warning "Falha ao remover $name. Continuando..."
+    echo "$output" >&2
+  else
+    klog "$name removido com sucesso."
+  fi
+
+  return 0
+}
+
+real_delete_plantsuite_all() {
+  real_set_status_detail "Removendo todos os serviços plantsuite..."
+  klog "Removendo todos os serviços plantsuite"
+
+  kubectl get namespace plantsuite &>/dev/null || {
+    klog "Namespace plantsuite não existe."
+    return 0
+  }
+
+  local output
+  output=$(kubectl kustomize --enable-helm "k8s/base/plantsuite/" 2>&1 | kubectl delete -f - --ignore-not-found=true 2>&1)
+  if [[ $? -ne 0 ]]; then
+    warning "Falha ao remover plantsuite. Continuando..."
+    echo "$output" >&2
+  else
+    klog "Plantsuite removido com sucesso."
+  fi
+
+  real_wait_namespace_deleted "plantsuite"
   return 0
 }
 
@@ -568,6 +769,77 @@ real_execute_step() {
         real_set_status_detail "Validando rollouts de plantsuite..."
         real_wait_rollouts_from_path "k8s/base/plantsuite/" "plantsuite" "plantsuite" "300s" || return $?
       fi
+      ;;
+    plantsuite-delete)
+      real_delete_plantsuite_all
+      ;;
+    metrics-server-delete)
+      real_delete_infra_component "k8s/base/metrics-server/" "metrics-server"
+      ;;
+    cert-manager-delete-issuers)
+      real_delete_infra_component "k8s/base/cert-manager/issuers/" "cert-manager/issuers"
+      ;;
+    cert-manager-delete)
+      real_delete_infra_component "k8s/base/cert-manager/" "cert-manager"
+      real_wait_namespace_deleted "cert-manager"
+      ;;
+    istio-system-delete)
+      real_delete_infra_component "k8s/base/istio-system/" "istio-system"
+      real_wait_namespace_deleted "istio-system"
+      ;;
+    istio-ingress-delete)
+      real_delete_infra_component "k8s/base/istio-ingress/" "istio-ingress"
+      real_wait_namespace_deleted "istio-ingress"
+      ;;
+    aspire-delete)
+      real_delete_infra_component "k8s/base/aspire/" "aspire"
+      real_wait_namespace_deleted "aspire"
+      ;;
+    mongodb-delete-instance)
+      real_delete_infra_component "k8s/base/mongodb/plantsuite-psmdb/" "mongodb/plantsuite-psmdb"
+      real_delete_cr_with_finalizer_handling "psmdb" "plantsuite-psmdb" "mongodb"
+      real_wait_statefulset_deleted "mongodb" "app.kubernetes.io/instance=plantsuite-psmdb" "plantsuite-psmdb"
+      ;;
+    mongodb-delete-operator)
+      real_delete_infra_component "k8s/base/mongodb/" "mongodb operator"
+      real_wait_namespace_deleted "mongodb"
+      ;;
+    postgresql-delete-instance)
+      real_delete_infra_component "k8s/base/postgresql/plantsuite-ppgc/" "postgresql/plantsuite-ppgc"
+      real_delete_cr_with_finalizer_handling "postgrescluster" "plantsuite-ppgc" "postgresql"
+      real_wait_statefulset_deleted "postgresql" "postgres-operator.crunchydata.com/cluster=plantsuite-ppgc" "plantsuite-ppgc"
+      ;;
+    postgresql-delete-operator)
+      real_delete_infra_component "k8s/base/postgresql/" "postgresql operator"
+      real_wait_namespace_deleted "postgresql"
+      ;;
+    redis-delete)
+      real_delete_infra_component "k8s/base/redis/" "redis"
+      real_wait_statefulset_deleted "redis" "app=redis" "plantsuite-redis"
+      real_wait_namespace_deleted "redis"
+      ;;
+    keycloak-delete-instance)
+      real_delete_infra_component "k8s/base/keycloak/plantsuite-kc/" "keycloak/plantsuite-kc"
+      real_delete_cr_with_finalizer_handling "keycloakrealmimport" "plantsuite-kc-realm" "keycloak"
+      real_delete_cr_with_finalizer_handling "keycloak" "plantsuite-kc" "keycloak"
+      ;;
+    keycloak-delete-operator)
+      real_delete_infra_component "k8s/base/keycloak/" "keycloak operator"
+      real_wait_namespace_deleted "keycloak"
+      ;;
+    rabbitmq-delete-instance)
+      real_delete_infra_component "k8s/base/rabbitmq/plantsuite-rmq/" "rabbitmq/plantsuite-rmq"
+      real_delete_cr_with_finalizer_handling "rabbitmqcluster" "plantsuite-rmq" "rabbitmq"
+      real_wait_statefulset_deleted "rabbitmq" "app.kubernetes.io/name=plantsuite-rmq" "plantsuite-rmq"
+      ;;
+    rabbitmq-delete-operator)
+      real_delete_infra_component "k8s/base/rabbitmq/" "rabbitmq operator"
+      real_wait_namespace_deleted "rabbitmq"
+      ;;
+    vernemq-delete)
+      real_delete_infra_component "k8s/base/vernemq/" "vernemq"
+      real_wait_statefulset_deleted "vernemq" "app.kubernetes.io/name=plantsuite-vmq" "plantsuite-vmq"
+      real_wait_namespace_deleted "vernemq"
       ;;
     *)
       REAL_LAST_ERROR="Etapa desconhecida: $step_id"

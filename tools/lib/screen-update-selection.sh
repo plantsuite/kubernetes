@@ -20,7 +20,7 @@ source "$SCRIPT_DIR/common/tui.sh"
 
 declare -a UPD_INFRA_NAMES=()
 declare -a UPD_INFRA_STATE=()
-declare -a UPD_INFRA_ACTION=() # 0=noop, 1=apply
+declare -a UPD_INFRA_ACTION=() # 0=noop, 1=apply, 2=delete
 UPD_INFRA_COUNT=0
 
 declare -a UPD_SVC_NAMES=(
@@ -34,6 +34,8 @@ declare -a UPD_SVC_ACTION=() # 0=noop, 1=apply, 2=delete
 UPD_SVC_COUNT=${#UPD_SVC_NAMES[@]}
 
 declare -a UPD_PROTECTED_REMOVE=("portal" "tenants")
+
+REMOVE_ALL_MODE=false
 
 # Mapa de linhas selecionaveis da lista unificada.
 # Cada entrada: "infra:<idx>" ou "svc:<idx>"
@@ -71,6 +73,7 @@ action_badge_infra() {
   local action="$1" state="${2:-}"
   case "$action" in
     1) [[ "$state" == "absent" ]] && echo "[I]" || echo "[U]" ;;
+    2) echo "[R]" ;;
     *) echo "[ ]" ;;
   esac
 }
@@ -147,10 +150,17 @@ toggle_row_action() {
   local idx="${row#*:}"
 
   if [[ "$row_type" == "infra" ]]; then
-    if [[ "${UPD_INFRA_ACTION[$idx]}" -eq 1 ]]; then
-      UPD_INFRA_ACTION[$idx]=0
+    local state="${UPD_INFRA_STATE[$idx]}"
+    if [[ "$state" == "absent" ]]; then
+      # noop -> apply -> noop
+      [[ "${UPD_INFRA_ACTION[$idx]}" -eq 0 ]] && UPD_INFRA_ACTION[$idx]=1 || UPD_INFRA_ACTION[$idx]=0
     else
-      UPD_INFRA_ACTION[$idx]=1
+      # installed/degraded: noop -> apply -> delete -> noop
+      case "${UPD_INFRA_ACTION[$idx]}" in
+        0) UPD_INFRA_ACTION[$idx]=1 ;;
+        1) UPD_INFRA_ACTION[$idx]=2 ;;
+        *) UPD_INFRA_ACTION[$idx]=0 ;;
+      esac
     fi
     return
   fi
@@ -188,9 +198,19 @@ set_row_action() {
   local idx="${row#*:}"
 
   if [[ "$row_type" == "infra" ]]; then
+    local state="${UPD_INFRA_STATE[$idx]}"
     case "$action" in
-      apply) UPD_INFRA_ACTION[$idx]=1 ;;
-      *) UPD_INFRA_ACTION[$idx]=0 ;;
+      apply)
+        UPD_INFRA_ACTION[$idx]=1
+        ;;
+      delete)
+        if [[ "$state" != "absent" ]]; then
+          UPD_INFRA_ACTION[$idx]=2
+        fi
+        ;;
+      *)
+        UPD_INFRA_ACTION[$idx]=0
+        ;;
     esac
     return
   fi
@@ -210,6 +230,23 @@ set_row_action() {
       UPD_SVC_ACTION[$idx]=0
       ;;
   esac
+}
+
+mark_all_for_deletion() {
+  local i
+  REMOVE_ALL_MODE=true
+
+  for ((i=0; i<UPD_INFRA_COUNT; i++)); do
+    if [[ "${UPD_INFRA_STATE[$i]}" != "absent" ]]; then
+      UPD_INFRA_ACTION[$i]=2
+    fi
+  done
+
+  for ((i=0; i<UPD_SVC_COUNT; i++)); do
+    if [[ "${UPD_SVC_STATE[$i]}" != "absent" ]]; then
+      UPD_SVC_ACTION[$i]=2
+    fi
+  done
 }
 
 count_infra_apply() {
@@ -236,10 +273,28 @@ count_svc_delete() {
   echo "$n"
 }
 
-selected_infra_list() {
+count_infra_delete() {
+  local n=0 i
+  for ((i=0; i<UPD_INFRA_COUNT; i++)); do
+    [[ "${UPD_INFRA_ACTION[$i]}" -eq 2 ]] && ((n++))
+  done
+  echo "$n"
+}
+
+selected_infra_apply_list() {
   local out="" i
   for ((i=0; i<UPD_INFRA_COUNT; i++)); do
     if [[ "${UPD_INFRA_ACTION[$i]}" -eq 1 ]]; then
+      [[ -z "$out" ]] && out="${UPD_INFRA_NAMES[$i]}" || out+=" ${UPD_INFRA_NAMES[$i]}"
+    fi
+  done
+  echo "$out"
+}
+
+selected_infra_delete_list() {
+  local out="" i
+  for ((i=0; i<UPD_INFRA_COUNT; i++)); do
+    if [[ "${UPD_INFRA_ACTION[$i]}" -eq 2 ]]; then
       [[ -z "$out" ]] && out="${UPD_INFRA_NAMES[$i]}" || out+=" ${UPD_INFRA_NAMES[$i]}"
     fi
   done
@@ -347,20 +402,21 @@ draw_update_selection_screen() {
     ((i++)) || true
   done
 
-  local infra_apply svc_apply svc_delete
+  local infra_apply infra_delete svc_apply svc_delete
   infra_apply=$(count_infra_apply)
+  infra_delete=$(count_infra_delete)
   svc_apply=$(count_svc_apply)
   svc_delete=$(count_svc_delete)
 
   tput cup "$((tbl_top+tbl_h))" 0 2>/dev/null || true
   tput el 2>/dev/null || true
-  printf '%s  %s[OK]%s instalado  [--] ausente  %s[!!]%s degradado  |  [I] instalar  [U] atualizar  [R] remover  |  plantsuite(I+U)=%s  plantsuite(R)=%s%s' \
+  printf '%s  %s[OK]%s instalado  [--] ausente  %s[!!]%s degradado  |  [I] instalar  [U] atualizar  [R] remover  |  infra(I+U)=%s  infra(R)=%s  plantsuite(I+U)=%s  plantsuite(R)=%s%s' \
     "$C_DIM" "$C_SUCCESS" "$C_DIM" "$C_WARN" "$C_DIM" \
-    "$svc_apply" "$svc_delete" "$C_RESET"
+    "$infra_apply" "$infra_delete" "$svc_apply" "$svc_delete" "$C_RESET"
 
   tput cup "$((TUI_LINES - 1))" 0 2>/dev/null || true
   tput el 2>/dev/null || true
-  colorize_hint "  ↑↓ navegar   space alternar   u aplicar   r remover   n limpar   x limpar tudo   b voltar   enter confirmar   q sair"
+  colorize_hint "  ↑↓ navegar   space alternar   u aplicar   r remover   n limpar   x limpar tudo   d remover tudo   b voltar   enter confirmar   q sair"
 
   if [[ -n "$msg" ]]; then
     tput cup "$((TUI_LINES - 2))" 0 2>/dev/null || true
@@ -412,6 +468,7 @@ draw_update_selection_row() {
     line="  ${st} ${ac} ${item_name}"
     [[ "$state_var" == "degraded" ]] && col="$C_WARN"
     [[ "${UPD_INFRA_ACTION[$idx]}" -eq 1 ]] && col="$C_WARN"
+    [[ "${UPD_INFRA_ACTION[$idx]}" -eq 2 ]] && col="$C_ERROR"
   else
     state="${UPD_SVC_STATE[$idx]}"
     state_var="$state"
@@ -510,17 +567,22 @@ run_screen_update_selection() {
       done
     fi
 
-    UPDATE_SELECTED_INFRA="$(selected_infra_list)"
+    UPDATE_SELECTED_INFRA_APPLY="$(selected_infra_apply_list)"
+    UPDATE_SELECTED_INFRA_DELETE="$(selected_infra_delete_list)"
     UPDATE_SELECTED_PLANTSUITE_APPLY="$(selected_svc_apply_list)"
     UPDATE_SELECTED_PLANTSUITE_DELETE="$(selected_svc_delete_list)"
-    export UPDATE_SELECTED_INFRA
+    export UPDATE_SELECTED_INFRA_APPLY
+    export UPDATE_SELECTED_INFRA_DELETE
     export UPDATE_SELECTED_PLANTSUITE_APPLY
     export UPDATE_SELECTED_PLANTSUITE_DELETE
+    export REMOVE_ALL_MODE
 
     {
-      echo "APPLY_INFRA=${UPDATE_SELECTED_INFRA}"
+      echo "APPLY_INFRA=${UPDATE_SELECTED_INFRA_APPLY}"
+      echo "DELETE_INFRA=${UPDATE_SELECTED_INFRA_DELETE}"
       echo "APPLY_SERVICES=${UPDATE_SELECTED_PLANTSUITE_APPLY}"
       echo "DELETE_SERVICES=${UPDATE_SELECTED_PLANTSUITE_DELETE}"
+      echo "REMOVE_ALL=${REMOVE_ALL_MODE}"
     } > "$RESULT_FILE"
     return
   fi
@@ -604,11 +666,16 @@ run_screen_update_selection() {
         for ((i=0; i<UPD_SVC_COUNT; i++)); do
           UPD_SVC_ACTION[$i]=0
         done
+        REMOVE_ALL_MODE=false
         footer_msg=""
         need_redraw=1
         ;;
+      d|D)
+        mark_all_for_deletion
+        running=0
+        ;;
       ENTER)
-        if [[ -z "$(selected_infra_list)" && -z "$(selected_svc_apply_list)" && -z "$(selected_svc_delete_list)" ]]; then
+        if [[ -z "$(selected_infra_apply_list)" && -z "$(selected_svc_apply_list)" && -z "$(selected_svc_delete_list)" && -z "$(selected_infra_delete_list)" ]]; then
           footer_msg="Selecione ao menos um item para continuar."
           need_redraw=1
           continue
@@ -633,17 +700,22 @@ run_screen_update_selection() {
     return
   fi
 
-  UPDATE_SELECTED_INFRA="$(selected_infra_list)"
+  UPDATE_SELECTED_INFRA_APPLY="$(selected_infra_apply_list)"
+  UPDATE_SELECTED_INFRA_DELETE="$(selected_infra_delete_list)"
   UPDATE_SELECTED_PLANTSUITE_APPLY="$(selected_svc_apply_list)"
   UPDATE_SELECTED_PLANTSUITE_DELETE="$(selected_svc_delete_list)"
-  export UPDATE_SELECTED_INFRA
+  export UPDATE_SELECTED_INFRA_APPLY
+  export UPDATE_SELECTED_INFRA_DELETE
   export UPDATE_SELECTED_PLANTSUITE_APPLY
   export UPDATE_SELECTED_PLANTSUITE_DELETE
+  export REMOVE_ALL_MODE
 
   {
-    echo "APPLY_INFRA=${UPDATE_SELECTED_INFRA}"
+    echo "APPLY_INFRA=${UPDATE_SELECTED_INFRA_APPLY}"
+    echo "DELETE_INFRA=${UPDATE_SELECTED_INFRA_DELETE}"
     echo "APPLY_SERVICES=${UPDATE_SELECTED_PLANTSUITE_APPLY}"
     echo "DELETE_SERVICES=${UPDATE_SELECTED_PLANTSUITE_DELETE}"
+    echo "REMOVE_ALL=${REMOVE_ALL_MODE}"
   } > "$RESULT_FILE"
 }
 
