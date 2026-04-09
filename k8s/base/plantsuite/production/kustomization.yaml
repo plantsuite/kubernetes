@@ -24,4 +24,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-production
-    newTag: 1.1.10
+    newTag: 2.0.0
