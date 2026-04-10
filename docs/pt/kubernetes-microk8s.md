@@ -58,3 +58,14 @@ Ao habilitar este add-on, você será solicitado a informar um pool de endereço
 ```
 microk8s enable metallb
 ```
+
+## Disponibilizando kubectl e helm globalmente
+
+Para que os scripts na pasta **tools** e execuções não interativas funcionem sem precisar do prefixo `microk8s`, é recomendado criar um alias snap para `kubectl` e `helm`:
+
+```
+sudo snap alias microk8s.kubectl kubectl
+sudo snap alias microk8s.helm3 helm
+```
+
+Agora você pode usar `kubectl` e `helm` diretamente em qualquer terminal e em scripts, sem necessidade de prefixo `microk8s`.
