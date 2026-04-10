@@ -61,6 +61,27 @@ get_k8s_secret_value() {
   kubectl get secret "$secret_name" -n "$namespace" -o jsonpath="{.data.${data_key}}" 2>/dev/null | base64 -d
 }
 
+sanitize_env_file() {
+  local file="$1"
+  if [ ! -f "$file" ] || [ ! -s "$file" ]; then
+    return 0
+  fi
+
+  local corrupted=0
+  while IFS= read -r line; do
+    case "$line" in
+      [a-z]*=*)
+        warning "Removendo chave corrompida do $file: ${line%%=*}"
+        sed_inplace "/^${line%%=*}=/d" "$file" 2>/dev/null || true
+        corrupted=1
+        ;;
+    esac
+  done < "$file"
+
+  [ "$corrupted" -eq 1 ] && warning "Arquivo $file limpo. Por favor, execute o instalador novamente."
+  return 0
+}
+
 # Atualiza arquivos dependentes quando a senha do Redis mudar.
 sync_redis_password_dependents() {
   local redis_password="$1"
@@ -203,6 +224,7 @@ EOF
 update_vernemq_secrets() {
   local env_file="k8s/base/vernemq/.env.secret"
 
+  sanitize_env_file "$env_file"
   local existing_postgres_host="" existing_postgres_user="" existing_postgres_password=""
   if [ -f "$env_file" ]; then
     existing_postgres_host=$(grep "^DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__HOST=" "$env_file" 2>/dev/null | cut -d'=' -f2-)
@@ -254,6 +276,7 @@ update_plantsuite_env() {
   local env_file="k8s/base/plantsuite/.env.secret"
 
   klog "Atualizando .env.secret do Plantsuite com segredos do cluster..."
+  sanitize_env_file "$env_file"
 
   local mongo_user="" mongo_pass=""
   local existing_mongo_conn
@@ -431,7 +454,7 @@ extract_tenant_id_from_license() {
   tenant_id=$(
     sed -n '1,/-----END CERTIFICATE-----/p' "$license_file" \
       | openssl x509 -subject -noout 2>/dev/null \
-      | sed -n 's/.*O = \([^,]*\),.*/\1/p'
+      | sed -n 's/.*O=\([^,]*\),.*/\1/p'
   )
 
   if [ -z "$tenant_id" ]; then
