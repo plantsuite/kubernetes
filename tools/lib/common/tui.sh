@@ -58,6 +58,15 @@ tui_check_compat() {
     if [[ $TUI_COLS -lt 60 || $TUI_LINES -lt 12 ]]; then
         TUI_PLAIN=1
     fi
+    # Git Bash / MSYS2: tput é significativamente mais lento (fork + ConPTY overhead)
+    # As otimizações de escape sequences diretas mitigam isso, mas warnamos o usuário.
+    if [[ -n "${MSYSTEM:-}" ]]; then
+        if [[ -z "${TUI_GITBASH_WARNED:-}" ]]; then
+            warning "Git Bash/MSYS2 detectado. A TUI pode ter performance reduzida."
+            warning "Para melhor experiência, considere usar WSL2 ou um terminal Linux/macOS nativo."
+            TUI_GITBASH_WARNED=1
+        fi
+    fi
 }
 
 # ── Init / Cleanup ───────────────────────────────────────────────────────────
@@ -123,6 +132,30 @@ trunc() {
     printf '%s' "${t:0:$((n-3))}..."
 }
 
+# ── Escape sequences (substituem tput cup/el para evitar forks) ──────────────
+# Move cursor para linha/coluna (0-indexed)
+_tui_move_cursor() {
+    local row="$1" col="$2"
+    printf '\033[%d;%dH' "$((row+1))" "$((col+1))"
+}
+
+# Limpa do cursor até o final da linha
+_tui_clear_eol() {
+    printf '\033[K'
+}
+
+# Gera string de N hífens sem subshell
+_tui_dashes() {
+    local count="$1"
+    printf "%0.s-" $(seq 1 "$count" 2>/dev/null | tr -d '\n' || true)
+}
+
+# Gera string de N hífens sem subshell
+_tui_dashes() {
+    local count="$1"
+    printf "%0.s-" $(seq 1 "$count" 2>/dev/null | tr -d '\n' || true)
+}
+
 # Coloriza legenda de atalhos: chave em C_ACCENT, descrição em C_DIM.
 # Segmentos separados por ≥3 espaços; chave = token antes do 1º espaço ou '='.
 colorize_hint() {
@@ -155,7 +188,7 @@ at() {
     local row="$1" col="$2" text="$3" attr="${4:-}" maxw="${5:-}"
     [[ -z "$maxw" ]] && maxw=$((TUI_COLS - col - 1))
     [[ $maxw -le 0 ]] && return 0
-    tput cup "$row" "$col" 2>/dev/null || return 0
+    _tui_move_cursor "$row" "$col"
     [[ -n "$attr" ]] && printf '%s' "$attr"
     printf '%s' "$(trunc "$text" "$maxw")"
     [[ -n "$attr" ]] && printf '%s' "$C_RESET"
@@ -164,7 +197,7 @@ at() {
 # Limpa 'width' caracteres a partir de 'col' na 'row'
 clear_area() {
     local row="$1" col="$2" width="$3"
-    tput cup "$row" "$col" 2>/dev/null || return 0
+    _tui_move_cursor "$row" "$col"
     printf '%*s' "$width" ''
 }
 
@@ -198,7 +231,7 @@ draw_box() {
     local inner=$((w - 2))
     local r c
     # Topo
-    tput cup "$row" "$col" 2>/dev/null || return 0
+    _tui_move_cursor "$row" "$col"
     printf '%s+' "$C_DIM"
     if [[ -n "$title" ]]; then
         local t=" $title "
@@ -206,21 +239,31 @@ draw_box() {
         local fill=$((inner - tl))
         [[ $fill -lt 0 ]] && { t="${t:0:$inner}"; fill=0; }
         printf '%s' "$t"
-        printf '%*s' "$fill" '' | tr ' ' '-'
+        if [[ $fill -gt 0 ]]; then
+            local dashes="" 
+            printf -v dashes '%*s' "$fill" ''
+            printf '%s' "${dashes// /-}"
+        fi
     else
-        printf '%*s' "$inner" '' | tr ' ' '-'
+        local dashes=""
+        printf -v dashes '%*s' "$inner" ''
+        printf '%s' "${dashes// /-}"
     fi
     printf '+%s' "$C_RESET"
     # Laterais
     for ((r=row+1; r<row+h-1; r++)); do
-        tput cup "$r" "$col" 2>/dev/null || true
+        _tui_move_cursor "$r" "$col"
         printf '%s|%s' "$C_DIM" "$C_RESET"
-        tput cup "$r" "$((col+w-1))" 2>/dev/null || true
+        _tui_move_cursor "$r" "$((col+w-1))"
         printf '%s|%s' "$C_DIM" "$C_RESET"
     done
     # Base
-    tput cup "$((row+h-1))" "$col" 2>/dev/null || return 0
-    printf '%s+%s+%s' "$C_DIM" "$(printf '%*s' "$inner" '' | tr ' ' '-')" "$C_RESET"
+    _tui_move_cursor "$((row+h-1))" "$col"
+    printf '%s+' "$C_DIM"
+    local dashes=""
+    printf -v dashes '%*s' "$inner" ''
+    printf '%s' "${dashes// /-}"
+    printf '+%s' "$C_RESET"
 }
 
 # ── Cabeçalho e rodapé compartilhados ────────────────────────────────────────
@@ -232,31 +275,31 @@ draw_header() {
     local title_col=$(( (TUI_COLS - ${#title_banner}) / 2 ))
     [[ $title_col -lt 0 ]] && title_col=0
 
-    tput cup 0 0 2>/dev/null || true
-    tput el 2>/dev/null || true
+    _tui_move_cursor 0 0
+    _tui_clear_eol
     at 0 "$title_col" "$title_banner" "$C_TITLE"
 
     local subtitle_col=$(( (TUI_COLS - ${#HEADER_SUBTITLE}) / 2 ))
     [[ $subtitle_col -lt 0 ]] && subtitle_col=0
-    tput cup 1 0 2>/dev/null || true
-    tput el 2>/dev/null || true
-    tput cup 2 0 2>/dev/null || true
-    tput el 2>/dev/null || true
+    _tui_move_cursor 1 0
+    _tui_clear_eol
+    _tui_move_cursor 2 0
+    _tui_clear_eol
     at 2 "$subtitle_col" "$(trunc "$HEADER_SUBTITLE" $((TUI_COLS - 4)))" "$C_DIM"
 
     if [[ -n "$HEADER_CTX" ]]; then
         local ctx="$HEADER_CTX"
         local ctx_col=$(( (TUI_COLS - ${#ctx}) / 2 ))
         [[ $ctx_col -lt 0 ]] && ctx_col=0
-        tput cup 3 0 2>/dev/null || true
-        tput el 2>/dev/null || true
+        _tui_move_cursor 3 0
+        _tui_clear_eol
         at 3 "$ctx_col" "$(trunc "$ctx" $((TUI_COLS - 4)))" "$C_ACCENT"
-        tput cup 4 0 2>/dev/null || true
-        tput el 2>/dev/null || true
+        _tui_move_cursor 4 0
+        _tui_clear_eol
         HEADER_HEIGHT=4
     else
-        tput cup 3 0 2>/dev/null || true
-        tput el 2>/dev/null || true
+        _tui_move_cursor 3 0
+        _tui_clear_eol
         HEADER_HEIGHT=3
     fi
 }
@@ -264,8 +307,8 @@ draw_header() {
 draw_footer() {
     local msg="${1:-}"
     local hint="  ↑↓ navegar   enter selecionar   q sair  "
-    tput cup "$((TUI_LINES - 1))" 0 2>/dev/null || true
-    tput el 2>/dev/null || true
+    _tui_move_cursor "$((TUI_LINES - 1))" 0
+    _tui_clear_eol
     colorize_hint "$(trunc "$hint" $((TUI_COLS / 2)))"
     if [[ -n "$msg" ]]; then
         at "$((TUI_LINES - 1))" $((TUI_COLS / 2)) "$msg" "$C_ACCENT" $((TUI_COLS / 2 - 2))
@@ -380,8 +423,8 @@ draw_list() {
         local cur="${CTX_CURRENT[$idx]}"
         local label="$name"
         [[ "$cur" == "1" ]] && label="$name [atual]"
-        tput cup "$((row+i))" "$col" 2>/dev/null || true
-        tput el 2>/dev/null || true
+        _tui_move_cursor "$((row+i))" "$col"
+        _tui_clear_eol
         local inner=$((w-2))
         if [[ $idx -eq $sel ]]; then
             printf '%s> %s%s' \
@@ -395,7 +438,8 @@ draw_list() {
     done
     # Limpa linhas sobrando
     while [[ $i -lt $cap ]]; do
-        tput cup "$((row+i))" "$col" 2>/dev/null || true; tput el 2>/dev/null || true
+        _tui_move_cursor "$((row+i))" "$col"
+        _tui_clear_eol
         ((i++)) || true
     done
 }
@@ -530,9 +574,9 @@ run_plain_menu_generic() {
         input_flush
     while [[ $running -eq 1 ]]; do
         tui_handle_resize
-        tput cup 0 0 2>/dev/null || true
+        _tui_move_cursor 0 0
         draw_screen "$selected"
-        tput cup 0 0 2>/dev/null || true
+        _tui_move_cursor 0 0
         local key; key=$(read_key) || break
         case "$key" in
             UP)    selected=$(( (selected - 1 + MENU_COUNT) % MENU_COUNT )) ;;
@@ -616,9 +660,9 @@ run_tui() {
         input_flush
     while [[ $running -eq 1 ]]; do
         tui_handle_resize
-        tput cup 0 0 2>/dev/null || true
+        _tui_move_cursor 0 0
         draw_screen "$selected"
-        tput cup 0 0 2>/dev/null || true  # evita cursor visível no canto errado
+        _tui_move_cursor 0 0  # evita cursor visível no canto errado
 
         local key; key=$(read_key) || break
         case "$key" in

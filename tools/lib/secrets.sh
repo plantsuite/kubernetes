@@ -38,9 +38,14 @@ set_env_value() {
   local value="$3"
 
   [ -f "$file" ] || touch "$file"
-  awk -v key="$key" -v value="$value" \
-    'BEGIN{updated=0} $0 ~ ("^"key"=") {print key"="value; updated=1; next} {print} END{if(updated==0){print key"="value}}' \
+  export _AWK_KEY="$key" _AWK_VALUE="$value"
+  awk \
+    'BEGIN{updated=0; key=ENVIRON["_AWK_KEY"]; value=ENVIRON["_AWK_VALUE"]}
+     $0 ~ ("^"key"=") {print key"="value; updated=1; next}
+     {print}
+     END{if(updated==0){print key"="value}}' \
     "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+  unset _AWK_KEY _AWK_VALUE
 }
 
 # Lê uma chave de arquivo .env (retorna vazio se não existir)
@@ -58,7 +63,7 @@ get_k8s_secret_value() {
   local namespace="$1"
   local secret_name="$2"
   local data_key="$3"
-  kubectl get secret "$secret_name" -n "$namespace" -o jsonpath="{.data.${data_key}}" 2>/dev/null | base64 -d
+  kubectl get secret "$secret_name" -n "$namespace" -o jsonpath="{.data.${data_key}}" 2>/dev/null | base64 -d | tr -d '\r'
 }
 
 sanitize_env_file() {
@@ -67,18 +72,27 @@ sanitize_env_file() {
     return 0
   fi
 
-  local corrupted=0
+  local keys_to_delete=""
   while IFS= read -r line; do
     case "$line" in
       [a-z]*=*)
-        warning "Removendo chave corrompida do $file: ${line%%=*}"
-        sed_inplace "/^${line%%=*}=/d" "$file" 2>/dev/null || true
-        corrupted=1
+        local key="${line%%=*}"
+        local escaped_key
+        printf -v escaped_key '%s' "$key" | sed 's/[.[*?^$()+]/\\&/g'
+        if [[ -z "$keys_to_delete" ]]; then
+          keys_to_delete="$escaped_key"
+        else
+          keys_to_delete="${keys_to_delete}\|$escaped_key"
+        fi
         ;;
     esac
   done < "$file"
 
-  [ "$corrupted" -eq 1 ] && warning "Arquivo $file limpo. Por favor, execute o instalador novamente."
+  if [[ -n "$keys_to_delete" ]]; then
+    warning "Removendo chaves corrompidas do $file"
+    sed_inplace "/^\(${keys_to_delete}\)=/d" "$file" 2>/dev/null || true
+    warning "Arquivo $file limpo. Por favor, execute o instalador novamente."
+  fi
   return 0
 }
 
@@ -536,40 +550,4 @@ patch_mes_mqtt_user_env() {
 
   klog "MQTT.User injetado via kubectl para $svc: $mqtt_user"
   return 0
-}
-
-# Função para limpar senhas dos arquivos .env.secret
-cleanup_env_secrets() {
-  klog "Iniciando limpeza de senhas dos arquivos .env.secret..."
-
-  local files=(
-    "k8s/base/keycloak/plantsuite-kc/.env.secret"
-    "k8s/base/plantsuite/.env.secret"
-    "k8s/base/redis/.env.secret"
-    "k8s/base/vernemq/.env.secret"
-  )
-
-  for file in "${files[@]}"; do
-    if [ ! -f "$file" ]; then
-      warning "Arquivo $file não encontrado. Pulando..."
-      continue
-    fi
-
-    klog "Processando $file..."
-
-    tmpfile=$(mktemp)
-    perl -0777 -pe '
-      s/^```[^\n]*\n|```[ \t]*\n//mg;
-      s/^(Database__MongoDb__ConnectionString=)(.*?mongodb:\/\/[^:]+:)[^@]*@/$1$2@/mix;
-      s/^(Database__Redis__ConnectionString=.*?,)password=[^,\r\n]*/$1password=/mi;
-      s/^(.*(?i:password).*?)=.*/$1=/mg;
-      s/^(client-secret_[^=\n]*)=.*/$1=/mig;
-      s/^(Keycloak__AdminClientSecret)=.*/$1=/mg;
-      s/^(Keycloak__IntrospectionClientSecret)=.*/$1=/mg;
-    ' "$file" > "$tmpfile" && mv "$tmpfile" "$file"
-
-    klog "Senhas removidas de $file."
-  done
-
-  klog "Limpeza de senhas concluída."
 }

@@ -75,12 +75,24 @@ draw_progress_bar() {
   local filled=$((percent * inner / 100))
   local empty=$((inner - filled))
 
-  tput cup "$row" "$col" 2>/dev/null || true
+  printf '\033[%d;%dH' "$((row+1))" "$((col+1))"
   printf '%s[' "$C_DIM"
   printf '%s' "$C_ACCENT"
-  printf '%*s' "$filled" '' | tr ' ' '#'
+  
+  if [[ $filled -gt 0 ]]; then
+    local filled_str=""
+    printf -v filled_str '%*s' "$filled" ''
+    printf '%s' "${filled_str// /#}"
+  fi
+  
   printf '%s' "$C_DIM"
-  printf '%*s' "$empty" '' | tr ' ' '-'
+  
+  if [[ $empty -gt 0 ]]; then
+    local empty_str=""
+    printf -v empty_str '%*s' "$empty" ''
+    printf '%s' "${empty_str// /-}"
+  fi
+  
   printf ']%s' "$C_RESET"
 }
 
@@ -145,8 +157,8 @@ draw_real_execution_screen() {
     at "$footer_row" 3 "$(trunc "$detail" $((TUI_COLS-8)))" "$C_WARN"
   fi
 
-  tput cup "$((TUI_LINES - 1))" 0 2>/dev/null || true
-  tput el 2>/dev/null || true
+  printf '\033[%d;1H' "$((TUI_LINES))"
+  printf '\033[K'
   if [[ "$mode" == "failure" ]]; then
     colorize_hint "  r tentar novamente etapa   c cancelar instalação"
   fi
@@ -249,11 +261,10 @@ start_real_activity_spinner() {
       fi
       
       # Limpar e renderizar: status + spinner
-      tput cup "$((TUI_LINES - 1))" 0 2>/dev/null || true
-      tput el 2>/dev/null || true
+      printf '\033[%d;1H\033[K' "$((TUI_LINES))"
       printf '%s%s%s' "$C_ACCENT" "  $status " "$C_RESET"
       
-      tput cup "$((TUI_LINES - 1))" "$((TUI_COLS - 3))" 2>/dev/null || true
+      printf '\033[%d;%dH' "$((TUI_LINES))" "$((TUI_COLS - 2))"
       printf '%s%s%s' "$C_ACCENT" "$ch" "$C_RESET"
       
       i=$((i + 1))
@@ -278,8 +289,7 @@ stop_real_activity_spinner() {
     return
   fi
 
-  tput cup "$((TUI_LINES - 1))" "$((TUI_COLS - 3))" 2>/dev/null || true
-  printf ' '
+  printf '\033[%d;%dH ' "$((TUI_LINES))" "$((TUI_COLS - 2))"
 }
 
 # Salvar/recuperar cache em arquivo compartilhado entre processos
