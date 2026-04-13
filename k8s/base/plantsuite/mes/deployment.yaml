@@ -25,9 +25,7 @@ spec:
               protocol: TCP
           envFrom:
             - secretRef:
-                name: plantsuite-env
-            - configMapRef:
-                name: mes-appsettings
+                name: plantsuite-mes-env
           env:
             - name: NODE_NAME
               valueFrom:
@@ -90,6 +88,18 @@ spec:
             periodSeconds: 20
             successThreshold: 1
             failureThreshold: 5
+          volumeMounts:
+            - name: appsettings
+              readOnly: true
+              mountPath: /usr/share/nginx/html/configs/app-config.prod.json
+              subPath: appsettings.json
+      volumes:
+        - name: appsettings
+          configMap:
+            name: mes-appsettings
+            items:
+              - key: appsettings.json
+                path: appsettings.json
       imagePullSecrets:
         - name: plantsuite-cr
       restartPolicy: Always

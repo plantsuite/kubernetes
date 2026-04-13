@@ -14,10 +14,15 @@ resources:
   - pdb.yaml
   - service.yaml
 
+secretGenerator:
+  - name: plantsuite-mes-env
+    files:
+      - appsettings.env
+
 configMapGenerator:
   - name: mes-appsettings
-    envs:
-      - appsettings.env
+    files:
+      - appsettings.json
 
 generatorOptions:
   disableNameSuffixHash: true
