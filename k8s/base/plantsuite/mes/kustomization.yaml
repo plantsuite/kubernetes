@@ -16,7 +16,7 @@ resources:
 
 secretGenerator:
   - name: plantsuite-mes-env
-    files:
+    envs:
       - appsettings.env
 
 configMapGenerator:
