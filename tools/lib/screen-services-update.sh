@@ -299,13 +299,15 @@ run_screen_update_services() {
   input_flush
 
   while [[ $running -eq 1 ]]; do
-    tui_handle_resize
-    tput cup 0 0 2>/dev/null || true
+    _tui_move_cursor 0 0
     draw_update_services_screen "$selected"
-    tput cup 0 0 2>/dev/null || true
+    _tui_move_cursor 0 0
 
-    key=$(read_key) || break
+    key=$(read_key) || continue
     case "$key" in
+      RESIZE)
+        tui_on_resize
+        ;;
       UP) selected=$(( (selected - 1 + UPD_SVC_COUNT) % UPD_SVC_COUNT )) ;;
       DOWN) selected=$(( (selected + 1) % UPD_SVC_COUNT )) ;;
       SPACE) cycle_action_for_service "$selected" ;;

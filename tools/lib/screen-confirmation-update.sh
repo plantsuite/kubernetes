@@ -144,13 +144,15 @@ run_screen_update_confirmation() {
   input_flush
 
   while [[ $running -eq 1 ]]; do
-    tui_handle_resize
-    tput cup 0 0 2>/dev/null || true
+    _tui_move_cursor 0 0
     draw_update_confirmation_screen
-    tput cup 0 0 2>/dev/null || true
+    _tui_move_cursor 0 0
 
-    key=$(read_key) || break
+    key=$(read_key) || continue
     case "$key" in
+      RESIZE)
+        tui_on_resize
+        ;;
       ENTER)
         running=0
         ;;

@@ -416,6 +416,35 @@ run_screen_execution_real() {
 
   tui_init
   tui_init_colors
+  if ! tui_wait_min_size; then
+    _tui_cleanup
+    if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+      echo "=== Atualizacao Kubernetes ==="
+    else
+      echo "=== Instalacao Kubernetes ==="
+    fi
+    echo "Contexto/Overlay: $HEADER_CTX"
+
+    if ! real_assert_prereqs; then
+      echo "[ERRO] $REAL_LAST_ERROR"
+      [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
+      return
+    fi
+
+    for ((i=0; i<REAL_STEP_COUNT; i++)); do
+      echo "[>] ${REAL_STEP_LABELS[$i]}"
+      if ! real_execute_step "${REAL_STEP_IDS[$i]}"; then
+        echo "[ERRO] ${REAL_STEP_LABELS[$i]}"
+        echo "$REAL_LAST_ERROR"
+        [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
+        return
+      fi
+      echo "[OK] ${REAL_STEP_LABELS[$i]}"
+    done
+
+    [[ -n "${RESULT_FILE:-}" ]] && echo "success" > "$RESULT_FILE" || echo "success"
+    return
+  fi
   tput clear 2>/dev/null || true
   draw_real_execution_chrome
 
@@ -458,6 +487,9 @@ run_screen_execution_real() {
           local key
           key=$(read_key) || continue
           case "$key" in
+            RESIZE)
+              tui_on_resize
+              ;;
             r|R)
               REAL_STEP_STATUS[$i]="running"
               REAL_TUI_RUNNING=1
@@ -520,8 +552,12 @@ run_screen_execution_real() {
   input_flush
   local k
   while true; do
-    k=$(read_key) || k="ENTER"
-    [[ "$k" == "ENTER" ]] && break
+    k=$(read_key)
+    if [[ "$k" == "ENTER" ]]; then
+      break
+    elif [[ "$k" == "RESIZE" ]]; then
+      tui_on_resize
+    fi
   done
 
   _tui_cleanup

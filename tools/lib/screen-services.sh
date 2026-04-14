@@ -192,13 +192,15 @@ run_screen_services() {
     input_flush
 
     while [[ $running -eq 1 ]]; do
-        tui_handle_resize
-        tput cup 0 0 2>/dev/null || true
+        _tui_move_cursor 0 0
         draw_services_screen "$selected"
-        tput cup 0 0 2>/dev/null || true
+        _tui_move_cursor 0 0
 
-        local key; key=$(read_key) || break
+        local key; key=$(read_key) || continue
         case "$key" in
+            RESIZE)
+                tui_on_resize
+                ;;
             UP)
                 selected=$(( (selected - 1 + SVC_COUNT) % SVC_COUNT ))
                 ;;

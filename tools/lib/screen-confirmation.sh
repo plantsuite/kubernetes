@@ -177,18 +177,56 @@ run_screen_confirmation() {
 
     tui_init
     tui_init_colors
+    if ! tui_wait_min_size; then
+        _tui_cleanup
+        build_infra_entries
+        echo ""
+        echo "=== Confirmação ==="
+        echo "Contexto    : $SELECTED_CONTEXT"
+        echo "Overlay     : $SELECTED_OVERLAY"
+        echo ""
+        echo "Infraestrutura:"
+        local item
+        for item in "${INFRA_ENTRIES[@]}"; do
+            printf '  - %s\n' "$item"
+        done
+        echo ""
+        echo "Serviços PlantSuite ($(count_selected_services) componentes):"
+        local svc src
+        while IFS= read -r svc; do
+            src="$(service_source_for_overlay "$svc")"
+            printf '  - %s [%s]\n' "$svc" "$src"
+        done < <(sorted_selected_services)
+        echo ""
+        read -rp "Confirmar instalação? (s/n/b=voltar/q=sair): " -n 1 confirm
+        echo ""
+        if [[ "$confirm" =~ [qQ] ]]; then
+            echo "__QUIT__" > "$RESULT_FILE"
+            return
+        fi
+        if [[ "$confirm" =~ [bB] ]]; then
+            echo "__BACK__" > "$RESULT_FILE"
+            return
+        fi
+        if [[ "$confirm" =~ [sS] ]]; then
+            echo "confirmed" > "$RESULT_FILE"
+        fi
+        return
+    fi
 
     local running=1 key="QUIT"
     input_flush
 
     while [[ $running -eq 1 ]]; do
-        tui_handle_resize
-        tput cup 0 0 2>/dev/null || true
+        _tui_move_cursor 0 0
         draw_confirmation_screen
-        tput cup 0 0 2>/dev/null || true
+        _tui_move_cursor 0 0
 
-        key=$(read_key) || break
+        local key; key=$(read_key) || continue
         case "$key" in
+            RESIZE)
+                tui_on_resize
+                ;;
             ENTER)
                 running=0
                 ;;

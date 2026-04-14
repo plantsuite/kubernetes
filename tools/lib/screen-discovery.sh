@@ -48,6 +48,15 @@ run_screen_discovery() {
 
   tui_init
   tui_init_colors
+  if ! tui_wait_min_size; then
+    _tui_cleanup
+    echo ""
+    echo "Detectando ambiente do cluster..."
+    detect_auto_mode >/dev/null
+    local mode="$UPDATE_DETECTED_MODE"
+    [[ -n "${RESULT_FILE:-}" ]] && echo "$mode" > "$RESULT_FILE" || echo "$mode"
+    return
+  fi
 
   tput cup 0 0 2>/dev/null || true
   draw_discovery_screen "Analisando cluster..."

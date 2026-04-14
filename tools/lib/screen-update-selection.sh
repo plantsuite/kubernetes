@@ -592,45 +592,37 @@ run_screen_update_selection() {
 
   # Posiciona cursor no primeiro item selecionavel (pula blank e separador iniciais).
   local selected=2 running=1 key i
-  local need_redraw=1
   local footer_msg=""
   input_flush
 
   while [[ $running -eq 1 ]]; do
-    if [[ ${TUI_RESIZE:-0} -eq 1 ]]; then
-      tui_handle_resize
-      need_redraw=1
-    fi
+    _tui_move_cursor 0 0
+    draw_update_selection_screen "$selected" "$footer_msg"
+    _tui_move_cursor 0 0
 
-    if [[ $need_redraw -eq 1 ]]; then
-      tput cup 0 0 2>/dev/null || true
-      draw_update_selection_screen "$selected" "$footer_msg"
-      tput cup 0 0 2>/dev/null || true
-      need_redraw=0
-    fi
-
-    key=$(read_key) || break
+    key=$(read_key) || continue
     case "$key" in
-      UP)
-        local old_selected="$selected"
+      RESIZE)
+        tui_on_resize
+        ;;
+UP)
+        local old_selected=$selected
         local tbl_top=$((HEADER_HEIGHT + 1))
         local tbl_h=$((TUI_LINES - tbl_top - 5))
         [[ $tbl_h -lt 10 ]] && tbl_h=10
         local cap=$((tbl_h - 2))
         local old_start new_start
-        old_start=$(scroll_top "$UPD_ROWS_COUNT" "$old_selected" "$cap")
+        old_start=$(scroll_top UPD_ROWS_COUNT $old_selected $cap)
 
         selected=$(( (selected - 1 + UPD_ROWS_COUNT) % UPD_ROWS_COUNT ))
-        while [[ "${UPD_ROWS[$selected]%%:*}" == "sep" || "${UPD_ROWS[$selected]%%:*}" == "blank" ]]; do
+        while [[ ${UPD_ROWS[$selected]%%:*} == sep || ${UPD_ROWS[$selected]%%:*} == blank ]]; do
           selected=$(( (selected - 1 + UPD_ROWS_COUNT) % UPD_ROWS_COUNT ))
         done
 
-        new_start=$(scroll_top "$UPD_ROWS_COUNT" "$selected" "$cap")
-        if [[ "$new_start" != "$old_start" ]]; then
-          need_redraw=1
-        else
-          draw_update_selection_row "$old_selected" "$selected" "$old_start" "$tbl_top" "$cap"
-          draw_update_selection_row "$selected" "$selected" "$old_start" "$tbl_top" "$cap"
+new_start=$(scroll_top UPD_ROWS_COUNT $selected $cap)
+        if [[ $new_start == $old_start ]]; then
+          draw_update_selection_row $old_selected $selected $old_start $tbl_top $cap
+          draw_update_selection_row $selected $selected $old_start $tbl_top $cap
         fi
         ;;
       DOWN)
@@ -648,17 +640,11 @@ run_screen_update_selection() {
         done
 
         new_start=$(scroll_top "$UPD_ROWS_COUNT" "$selected" "$cap")
-        if [[ "$new_start" != "$old_start" ]]; then
-          need_redraw=1
-        else
+        if [[ $new_start == $old_start ]]; then
           draw_update_selection_row "$old_selected" "$selected" "$old_start" "$tbl_top" "$cap"
           draw_update_selection_row "$selected" "$selected" "$old_start" "$tbl_top" "$cap"
         fi
         ;;
-      SPACE) toggle_row_action "$selected"; footer_msg=""; need_redraw=1 ;;
-      u|U) set_row_action "$selected" "apply"; footer_msg=""; need_redraw=1 ;;
-      r|R) set_row_action "$selected" "delete"; footer_msg=""; need_redraw=1 ;;
-      n|N) set_row_action "$selected" "none"; footer_msg=""; need_redraw=1 ;;
       x|X)
         for ((i=0; i<UPD_INFRA_COUNT; i++)); do
           UPD_INFRA_ACTION[$i]=0
@@ -668,7 +654,6 @@ run_screen_update_selection() {
         done
         REMOVE_ALL_MODE=false
         footer_msg=""
-        need_redraw=1
         ;;
       d|D)
         mark_all_for_deletion
@@ -677,7 +662,6 @@ run_screen_update_selection() {
       ENTER)
         if [[ -z "$(selected_infra_apply_list)" && -z "$(selected_svc_apply_list)" && -z "$(selected_svc_delete_list)" && -z "$(selected_infra_delete_list)" ]]; then
           footer_msg="Selecione ao menos um item para continuar."
-          need_redraw=1
           continue
         fi
         running=0

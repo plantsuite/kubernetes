@@ -10,6 +10,10 @@ TUI_LINES=24
 TUI_RESIZE=0
 TUI_PLAIN=0          # 1 = fallback menu numerado
 
+# Tamanho mínimo do terminal para a TUI (evita distorção de layout)
+TUI_MIN_COLS=160
+TUI_MIN_LINES=40
+
 # Contextos carregados de kubectl
 declare -a CTX_NAMES=()
 declare -a CTX_CLUSTERS=()
@@ -52,12 +56,10 @@ tui_check_compat() {
         TUI_PLAIN=1
         return
     fi
-    # Terminal muito pequeno
+    # Terminal muito pequeno: não define TUI_PLAIN aqui — tui_wait_min_size()
+    # cuida disso com tela de orientação ao usuário.
     TUI_COLS=$(tput cols 2>/dev/null || echo 80)
     TUI_LINES=$(tput lines 2>/dev/null || echo 24)
-    if [[ $TUI_COLS -lt 60 || $TUI_LINES -lt 12 ]]; then
-        TUI_PLAIN=1
-    fi
     # Git Bash / MSYS2: tput é significativamente mais lento (fork + ConPTY overhead)
     # As otimizações de escape sequences diretas mitigam isso, mas warnamos o usuário.
     if [[ -n "${MSYSTEM:-}" ]]; then
@@ -71,7 +73,12 @@ tui_check_compat() {
 
 # ── Init / Cleanup ───────────────────────────────────────────────────────────
 tui_init() {
-    tput smcup 2>/dev/null || tput clear 2>/dev/null || true
+    _TUI_ALTSCREEN=""
+    if tput smcup &>/dev/null; then
+        _TUI_ALTSCREEN=1
+    else
+        tput clear 2>/dev/null || true
+    fi
     tput civis 2>/dev/null || true
     stty -echo 2>/dev/null || true
     tput clear 2>/dev/null || true
@@ -84,18 +91,130 @@ tui_init() {
 _tui_cleanup() {
     if [ -t 1 ]; then
         tput cnorm 2>/dev/null || true
-        tput rmcup 2>/dev/null || true
+        if [ -n "${_TUI_ALTSCREEN:-}" ]; then
+            tput rmcup 2>/dev/null || true
+        else
+            printf '\033[2J\033[H'
+        fi
     fi
     stty echo 2>/dev/null || true
 }
 
-tui_handle_resize() {
-    if [[ $TUI_RESIZE -eq 1 ]]; then
-        TUI_RESIZE=0
-        TUI_COLS=$(tput cols 2>/dev/null || echo 80)
-        TUI_LINES=$(tput lines 2>/dev/null || echo 24)
-        tput clear 2>/dev/null || true
+# ── Leitura de tecla ─────────────────────────────────────────────────────────
+read_key() {
+    local k k2 k3 rest
+    local _debounce=0 _deb_nc=0 _deb_nl=0 _deb_cycles=0
+
+    while true; do
+        IFS= read -rsn1 -t 0.15 k 2>/dev/null && break
+
+        local nc nl
+        nc=$(tput cols 2>/dev/null || echo 80)
+        nl=$(tput lines 2>/dev/null || echo 24)
+        if [[ $nc -ne $TUI_COLS || $nl -ne $TUI_LINES ]]; then
+            if [[ $_debounce -eq 1 ]] && [[ $nc -eq $_deb_nc && $nl -eq $_deb_nl ]]; then
+                TUI_COLS=$nc; TUI_LINES=$nl
+                _debounce=0; _deb_cycles=0
+                echo "RESIZE"; return 0
+            fi
+            _deb_cycles=$(( _deb_cycles + 1 ))
+            if [[ $_deb_cycles -ge 6 ]]; then
+                TUI_COLS=$nc; TUI_LINES=$nl
+                _debounce=0; _deb_cycles=0
+                echo "RESIZE"; return 0
+            fi
+            _debounce=1; _deb_nc=$nc; _deb_nl=$nl
+        else
+            _debounce=0; _deb_cycles=0
+        fi
+    done
+
+    # Em alguns terminais, ENTER pode chegar como byte vazio com read -n1.
+    [[ -z "$k" ]] && { echo "ENTER"; return 0; }
+
+    if [[ "$k" == $'\033' ]]; then
+        # Sequencias CSI/SS3 (setas, PgUp/PgDn). Evita vazar 'A'/'B' como tecla comum.
+        # Se a sequencia vier incompleta/atrasada, nao fechar a UI por engano.
+        IFS= read -rsn1 -t 0.1 k2 2>/dev/null || { echo "UNKNOWN"; return 0; }
+        if [[ "$k2" == "[" || "$k2" == "O" ]]; then
+            IFS= read -rsn1 -t 0.1 k3 2>/dev/null || { echo "UNKNOWN"; return 0; }
+            case "$k3" in
+                A) echo "UP"; return 0 ;;
+                B) echo "DOWN"; return 0 ;;
+                C) echo "RIGHT"; return 0 ;;
+                D) echo "LEFT"; return 0 ;;
+                F) echo "END"; return 0 ;;
+                H) echo "HOME"; return 0 ;;
+                M) echo "ENTER"; return 0 ;;
+                5|6)
+                    # Espera '~' de PgUp/PgDn
+                    IFS= read -rsn1 -t 0.05 rest 2>/dev/null || true
+                    if [[ "$k3" == "5" && "$rest" == "~" ]]; then
+                        echo "PGUP"; return 0
+                    elif [[ "$k3" == "6" && "$rest" == "~" ]]; then
+                        echo "PGDN"; return 0
+                    fi
+                    ;;
+            esac
+            # Sequencia ANSI desconhecida: ignora sem encerrar a interface.
+            echo "UNKNOWN"
+            return 0
+        fi
+        # ESC seguido de byte nao reconhecido: nao trata como sair.
+        echo "UNKNOWN"
+        return 0
     fi
+    case "$k" in
+        $'\r'|$'\n')       echo "ENTER" ;;
+        $' ')                echo "SPACE"  ;;
+        q|Q)                 echo "QUIT"  ;;
+        *)                   echo "$k" ;;
+    esac
+}
+
+tui_on_resize() {
+    TUI_COLS=$(tput cols 2>/dev/null || echo 80)
+    TUI_LINES=$(tput lines 2>/dev/null || echo 24)
+    printf '\033[2J\033[H'
+}
+
+# Aguarda o terminal atingir o tamanho mínimo.
+# Retorna 0 se o tamanho foi atingido, 1 se o usuário escolheu modo texto.
+tui_wait_min_size() {
+    local cols lines
+    cols=$(tput cols 2>/dev/null || echo 80)
+    lines=$(tput lines 2>/dev/null || echo 24)
+
+    if [[ $cols -ge $TUI_MIN_COLS && $lines -ge $TUI_MIN_LINES ]]; then
+        TUI_COLS=$cols
+        TUI_LINES=$lines
+        return 0
+    fi
+
+    while [[ $cols -lt $TUI_MIN_COLS || $lines -lt $TUI_MIN_LINES ]]; do
+        printf '\033[2J\033[H'
+        printf '\033[1m=== PlantSuite Kubernetes Installer ===\033[0m\n\n'
+        printf '\033[1;31mTerminal muito pequeno!\033[0m\n\n'
+        printf '  Tamanho atual   : %dx%d\n' "$cols" "$lines"
+        printf '  Minimo necessario: %dx%d\n\n' "$TUI_MIN_COLS" "$TUI_MIN_LINES"
+        printf 'Redimensione a janela do terminal para continuar.\n'
+        printf 'Aperte \033[1m q \033[0m para usar o modo texto.\n'
+
+        # Espera por input ou redimensionamento
+        local key
+        IFS= read -rsn1 -t 1 key 2>/dev/null || true
+        if [[ "$key" == "q" || "$key" == "Q" ]]; then
+            TUI_PLAIN=1
+            return 1
+        fi
+
+        cols=$(tput cols 2>/dev/null || echo 80)
+        lines=$(tput lines 2>/dev/null || echo 24)
+    done
+
+    TUI_COLS=$cols
+    TUI_LINES=$lines
+    return 0
 }
 
 # ── Cores ────────────────────────────────────────────────────────────────────
@@ -142,12 +261,6 @@ _tui_move_cursor() {
 # Limpa do cursor até o final da linha
 _tui_clear_eol() {
     printf '\033[K'
-}
-
-# Gera string de N hífens sem subshell
-_tui_dashes() {
-    local count="$1"
-    printf "%0.s-" $(seq 1 "$count" 2>/dev/null | tr -d '\n' || true)
 }
 
 # Gera string de N hífens sem subshell
@@ -313,52 +426,6 @@ draw_footer() {
     if [[ -n "$msg" ]]; then
         at "$((TUI_LINES - 1))" $((TUI_COLS / 2)) "$msg" "$C_ACCENT" $((TUI_COLS / 2 - 2))
     fi
-}
-
-# ── Leitura de tecla ─────────────────────────────────────────────────────────
-read_key() {
-    local k k2 k3 rest
-    IFS= read -rsn1 k || return 1
-    # Em alguns terminais, ENTER pode chegar como byte vazio com read -n1.
-    [[ -z "$k" ]] && { echo "ENTER"; return 0; }
-    if [[ "$k" == $'\033' ]]; then
-        # Sequencias CSI/SS3 (setas, PgUp/PgDn). Evita vazar 'A'/'B' como tecla comum.
-        # Se a sequencia vier incompleta/atrasada, nao fechar a UI por engano.
-        IFS= read -rsn1 -t 0.1 k2 2>/dev/null || { echo "UNKNOWN"; return 0; }
-        if [[ "$k2" == "[" || "$k2" == "O" ]]; then
-            IFS= read -rsn1 -t 0.1 k3 2>/dev/null || { echo "UNKNOWN"; return 0; }
-            case "$k3" in
-                A) echo "UP"; return 0 ;;
-                B) echo "DOWN"; return 0 ;;
-                C) echo "RIGHT"; return 0 ;;
-                D) echo "LEFT"; return 0 ;;
-                F) echo "END"; return 0 ;;
-                H) echo "HOME"; return 0 ;;
-                M) echo "ENTER"; return 0 ;;
-                5|6)
-                    # Espera '~' de PgUp/PgDn
-                    IFS= read -rsn1 -t 0.05 rest 2>/dev/null || true
-                    if [[ "$k3" == "5" && "$rest" == "~" ]]; then
-                        echo "PGUP"; return 0
-                    elif [[ "$k3" == "6" && "$rest" == "~" ]]; then
-                        echo "PGDN"; return 0
-                    fi
-                    ;;
-            esac
-            # Sequencia ANSI desconhecida: ignora sem encerrar a interface.
-            echo "UNKNOWN"
-            return 0
-        fi
-        # ESC seguido de byte nao reconhecido: nao trata como sair.
-        echo "UNKNOWN"
-        return 0
-    fi
-    case "$k" in
-        $'\r'|$'\n')       echo "ENTER" ;;
-        $' ')                echo "SPACE"  ;;
-        q|Q)                 echo "QUIT"  ;;
-        *)                   echo "$k" ;;
-    esac
 }
 
 # ── Carregamento de contextos kubectl ────────────────────────────────────────
@@ -570,15 +637,23 @@ run_plain_menu_generic() {
     fi
     tui_init
     tui_init_colors
+    if ! tui_wait_min_size; then
+        _tui_cleanup
+        run_plain_menu_generic
+        return
+    fi
         local selected=0 running=1
         input_flush
     while [[ $running -eq 1 ]]; do
-        tui_handle_resize
         _tui_move_cursor 0 0
         draw_screen "$selected"
         _tui_move_cursor 0 0
-        local key; key=$(read_key) || break
+
+        local key; key=$(read_key) || continue
         case "$key" in
+            RESIZE)
+                tui_on_resize
+                ;;
             UP)    selected=$(( (selected - 1 + MENU_COUNT) % MENU_COUNT )) ;;
             DOWN)  selected=$(( (selected + 1) % MENU_COUNT )) ;;
             PGUP)  selected=$(( selected - 5 )); [[ $selected -lt 0 ]] && selected=0 ;;
@@ -625,6 +700,11 @@ run_tui() {
 
     tui_init
     tui_init_colors
+    if ! tui_wait_min_size; then
+        _tui_cleanup
+        run_plain_menu
+        return
+    fi
 
     if [[ $CTX_COUNT -eq 0 ]]; then
         tput clear 2>/dev/null || true
@@ -657,20 +737,22 @@ run_tui() {
     fi
     local running=1
 
-        input_flush
+input_flush
     while [[ $running -eq 1 ]]; do
-        tui_handle_resize
         _tui_move_cursor 0 0
         draw_screen "$selected"
-        _tui_move_cursor 0 0  # evita cursor visível no canto errado
+        _tui_move_cursor 0 0
 
-        local key; key=$(read_key) || break
+        local key; key=$(read_key) || continue
         case "$key" in
+            RESIZE)
+                tui_on_resize
+                ;;
             UP)
                 selected=$(( (selected - 1 + CTX_COUNT) % CTX_COUNT ))
                 ;;
             DOWN)
-                selected=$(( (selected + 1) % CTX_COUNT ))
+                selected=$(( (selected + 1 + CTX_COUNT) % CTX_COUNT ))
                 ;;
             PGUP)
                 selected=$(( selected - 10 ))
