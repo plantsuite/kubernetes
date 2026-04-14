@@ -58,15 +58,44 @@ run_screen_discovery() {
     return
   fi
 
-  tput cup 0 0 2>/dev/null || true
+  printf '\033[3J\033[2J\033[H'
   draw_discovery_screen "Analisando cluster..."
 
-  detect_auto_mode >/dev/null
+  detect_auto_mode >/dev/null 2>&1 &
+  local _disc_pid=$!
+
+  while kill -0 "$_disc_pid" 2>/dev/null; do
+    IFS= read -rsn1 -t 0.2 _dk 2>/dev/null || true
+    local nc nl
+    nc=$(tput cols 2>/dev/null || echo 80)
+    nl=$(tput lines 2>/dev/null || echo 24)
+    if [[ $nc -ne $TUI_COLS || $nl -ne $TUI_LINES ]]; then
+      TUI_COLS=$nc; TUI_LINES=$nl
+      printf '\033[3J\033[2J\033[H'
+      draw_discovery_screen "Analisando cluster..."
+    fi
+  done
+
+  wait "$_disc_pid" 2>/dev/null || true
+
   local mode="$UPDATE_DETECTED_MODE"
 
-  tput cup 0 0 2>/dev/null || true
+  printf '\033[3J\033[2J\033[H'
   draw_discovery_screen "Detecção concluída: modo ${mode}."
-  sleep 0.5
+
+  local _show_ticks=0
+  while [[ $_show_ticks -lt 2 ]]; do
+    IFS= read -rsn1 -t 0.5 wk 2>/dev/null && break
+    local nc nl
+    nc=$(tput cols 2>/dev/null || echo 80)
+    nl=$(tput lines 2>/dev/null || echo 24)
+    if [[ $nc -ne $TUI_COLS || $nl -ne $TUI_LINES ]]; then
+      TUI_COLS=$nc; TUI_LINES=$nl
+      printf '\033[3J\033[2J\033[H'
+      draw_discovery_screen "Detecção concluída: modo ${mode}."
+    fi
+    _show_ticks=$(( _show_ticks + 1 ))
+  done
 
   _tui_cleanup
   trap - EXIT INT TERM WINCH

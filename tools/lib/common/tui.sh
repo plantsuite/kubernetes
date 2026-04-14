@@ -76,6 +76,7 @@ tui_init() {
     _TUI_ALTSCREEN=""
     if tput smcup &>/dev/null; then
         _TUI_ALTSCREEN=1
+        tput smcup 2>/dev/null || true
     else
         tput clear 2>/dev/null || true
     fi
@@ -89,15 +90,12 @@ tui_init() {
 }
 
 _tui_cleanup() {
-    if [ -t 1 ]; then
-        tput cnorm 2>/dev/null || true
-        if [ -n "${_TUI_ALTSCREEN:-}" ]; then
-            tput rmcup 2>/dev/null || true
-        else
-            printf '\033[2J\033[H'
-        fi
-    fi
+    tput cnorm 2>/dev/null || true
     stty echo 2>/dev/null || true
+    printf '\033[2J\033[H'
+    if [ -n "${_TUI_ALTSCREEN:-}" ]; then
+        tput rmcup 2>/dev/null || true
+    fi
 }
 
 # ── Leitura de tecla ─────────────────────────────────────────────────────────
@@ -175,7 +173,7 @@ read_key() {
 tui_on_resize() {
     TUI_COLS=$(tput cols 2>/dev/null || echo 80)
     TUI_LINES=$(tput lines 2>/dev/null || echo 24)
-    printf '\033[2J\033[H'
+    printf '\033[3J\033[2J\033[H'
 }
 
 # Aguarda o terminal atingir o tamanho mínimo.
