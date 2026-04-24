@@ -25,6 +25,6 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-wd
-    newTag: 2.0.0
+    newTag: 2.1.0-alpha.1
   - name: plantsuite.azurecr.io/plantsuite-wd-ui
-    newTag: 2.0.0
+    newTag: 2.1.0-alpha.1
