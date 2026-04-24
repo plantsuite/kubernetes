@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/timeseries-buffer
+
+patches:
+  - target:
+      kind: StatefulSet
+      name: timeseries-buffer
+    path: patches/statefulset-ops.yaml

@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/wd
+
+patches:
+  - target:
+      kind: Deployment
+      name: wd
+    path: patches/deployment-ops.yaml

@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/alarms
+
+patches:
+  - target:
+      kind: Deployment
+      name: alarms
+    path: patches/deployment-ops.yaml

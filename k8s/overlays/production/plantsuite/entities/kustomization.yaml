@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/entities
+
+patches:
+  - target:
+      kind: Deployment
+      name: entities
+    path: patches/deployment-ops.yaml

@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/portal
+
+patches:
+  - target:
+      kind: Deployment
+      name: portal
+    path: patches/deployment-ops.yaml

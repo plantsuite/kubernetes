@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/timeseries-mqtt
+
+patches:
+  - target:
+      kind: StatefulSet
+      name: timeseries-mqtt
+    path: patches/statefulset-ops.yaml
