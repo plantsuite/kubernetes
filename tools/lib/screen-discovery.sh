@@ -61,7 +61,9 @@ run_screen_discovery() {
   printf '\033[3J\033[2J\033[H'
   draw_discovery_screen "Analisando cluster..."
 
-  detect_auto_mode >/dev/null 2>&1 &
+  local _disc_tmp
+  _disc_tmp=$(mktemp)
+  detect_auto_mode > "$_disc_tmp" 2>&1 &
   local _disc_pid=$!
 
   while kill -0 "$_disc_pid" 2>/dev/null; do
@@ -78,7 +80,13 @@ run_screen_discovery() {
 
   wait "$_disc_pid" 2>/dev/null || true
 
-  local mode="$UPDATE_DETECTED_MODE"
+  local mode
+  mode=$(cat "$_disc_tmp" 2>/dev/null || true)
+  rm -f "$_disc_tmp"
+  [[ -z "$mode" ]] && mode="install"
+
+  # Re-executa no shell pai para popular as variáveis de estado usadas pela tela de update.
+  detect_auto_mode >/dev/null 2>&1 || true
 
   printf '\033[3J\033[2J\033[H'
   draw_discovery_screen "Detecção concluída: modo ${mode}."
