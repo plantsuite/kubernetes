@@ -11,7 +11,7 @@
 			"minikube": "none"
 		},
 		"ghcr.io/wcgomes/devcontainer-features/opencode:0": {},
-		"ghcr.io/wcgomes/devcontainer-features/agency-agents:0": {}
+		"ghcr.io/wcgomes/devcontainer-features/agents-workspace:0": {}
 	},
 	"mounts": [
 		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.kube/config,target=/usr/local/share/kube-localhost/config,type=bind,readonly",
