@@ -137,13 +137,8 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.serviceAccountName
-            - name: appsettings_GatewayServer
+            - name: GatewayServer
               value: "http://localhost:80/api/v1/"
-            - name: appsettings_InstanceName
-              valueFrom:
-                secretKeyRef:
-                  name: plantsuite-gateway-env
-                  key: Instance__Name
           resources:
             requests:
               cpu: 50m

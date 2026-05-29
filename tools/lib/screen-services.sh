@@ -27,10 +27,7 @@ SVC_COUNT=${#SVC_NAMES[@]}
 # Serviços obrigatórios (sempre pré-selecionados, não removíveis)
 declare -a SVC_MANDATORY=()
 for ((i=0; i<SVC_COUNT; i++)); do
-    case "${SVC_NAMES[$i]}" in
-        portal|tenants) SVC_MANDATORY[$i]=1 ;;
-        *) SVC_MANDATORY[$i]=0 ;;
-    esac
+    SVC_MANDATORY[$i]=0
 done
 
 # Estado de seleção: 1=marcado, 0=desmarcado
