@@ -45,6 +45,7 @@ O stack PlantSuite é composto pelos seguintes componentes, organizados por cate
 | **Observabilidade** | Aspire Dashboard | Dashboard de observabilidade distribuída para .NET |
 | **Aplicações** | PlantSuite Portal | Interface web principal do PlantSuite |
 | | PlantSuite APIs | Microserviços (Devices, Entities, Queries, Tenants, Dashboards, Notifications, Alarms, SPC, Timeseries, Workflows) |
+| | PlantSuite Gateway | Gateway IoT para aquisição de dados OPC-UA/MQTT. Pode ser instalado de forma standalone sem bancos de dados (usa SQLite + autenticação local). |
 
 ### Pré-requisitos
 
@@ -78,6 +79,8 @@ Notas:
 Após a instalação, os serviços são expostos via Istio Gateway com os seguintes domínios:
 
 ### URLs HTTP/HTTPS
+- **Gateway API**: `gateway.plantsuite.local`
+- **Gateway UI**: `gateway-ui.plantsuite.local`
 - **Portal**: `portal.plantsuite.local`
 - **Keycloak**: `account.plantsuite.local`
 - **Aspire Dashboard**: `aspire-dashboard.plantsuite.local`
@@ -112,6 +115,8 @@ kubectl get svc -n istio-ingress gateway
 Adicione as entradas no arquivo `/etc/hosts` (Linux/macOS) ou `C:\Windows\System32\drivers\etc\hosts` (Windows), substituindo `<INGRESS_IP>` pelo IP obtido acima:
 
 ```
+<INGRESS_IP> gateway.plantsuite.local
+<INGRESS_IP> gateway-ui.plantsuite.local
 <INGRESS_IP> account.plantsuite.local
 <INGRESS_IP> alarms.plantsuite.local
 <INGRESS_IP> aspire-dashboard.plantsuite.local

@@ -45,6 +45,7 @@ The PlantSuite stack consists of the following components, organized by category
 | **Observability** | Aspire Dashboard | Distributed observability dashboard for .NET |
 | **Applications** | PlantSuite Portal | Main PlantSuite web interface |
 | | PlantSuite APIs | Microservices (Devices, Entities, Queries, Tenants, Dashboards, Notifications, Alarms, SPC, Timeseries, Workflows) |
+| | PlantSuite Gateway | IoT Gateway for OPC-UA/MQTT data acquisition. Can be installed standalone without databases (uses SQLite + local auth). |
 
 ### Prerequisites
 
@@ -77,6 +78,8 @@ Notes:
 After installation, services are exposed via Istio Gateway with the following domains:
 
 ### HTTP/HTTPS URLs
+- **Gateway API**: `gateway.plantsuite.local`
+- **Gateway UI**: `gateway-ui.plantsuite.local`
 - **Portal**: `portal.plantsuite.local`
 - **Keycloak**: `account.plantsuite.local`
 - **Aspire Dashboard**: `aspire-dashboard.plantsuite.local`
