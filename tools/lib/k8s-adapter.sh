@@ -328,6 +328,28 @@ real_apply_plantsuite_service() {
     return 40
   fi
 
+  if [[ "$svc" == "gateway" ]]; then
+    local _gw_env="k8s/base/plantsuite/gateway/appsettings.env"
+    local _instance_id _instance_name
+    _instance_id=$(grep -E "^Instance__Id=" "$_gw_env" 2>/dev/null | cut -d'=' -f2- | tr -d '[:space:]')
+    _instance_name=$(grep -E "^Instance__Name=" "$_gw_env" 2>/dev/null | cut -d'=' -f2- | tr -d '[:space:]')
+    if [[ -z "$_instance_id" ]]; then
+      _instance_id=$(kubectl get secret plantsuite-gateway-env -n plantsuite \
+        -o jsonpath='{.data.Instance__Id}' 2>/dev/null | base64 -d 2>/dev/null | tr -d '[:space:]')
+    fi
+    if [[ -z "$_instance_id" ]]; then
+      _instance_id=$(cat /proc/sys/kernel/random/uuid)
+      klog "Instance__Id gerado: $_instance_id"
+    fi
+    if [[ -n "$_instance_id" ]]; then
+      sed -i "s/^Instance__Id=.*/Instance__Id=$_instance_id/" "$_gw_env"
+    fi
+    if [[ -z "$_instance_name" ]]; then
+      REAL_LAST_ERROR="Instance__Name não configurado em $_gw_env."
+      return 1
+    fi
+  fi
+
   local component_path
   component_path=$(real_get_component_path "$svc_base")
 

@@ -464,6 +464,11 @@ update_gateway_env() {
   localauth_pass=$(get_env_value "$gw_env_file" "LocalAuth__Password")
 
   if [ -z "$instance_id" ]; then
+    # Tenta preservar UUID do secret existente no cluster (evita divergência com o SQLite)
+    instance_id=$(kubectl get secret plantsuite-gateway-env -n plantsuite \
+      -o jsonpath='{.data.Instance__Id}' 2>/dev/null | base64 -d 2>/dev/null | tr -d '[:space:]')
+  fi
+  if [ -z "$instance_id" ]; then
     instance_id=$(cat /proc/sys/kernel/random/uuid)
   fi
   if [ -z "$instance_id" ]; then
