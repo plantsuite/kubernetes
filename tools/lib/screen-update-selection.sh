@@ -612,14 +612,14 @@ UP)
         [[ $tbl_h -lt 10 ]] && tbl_h=10
         local cap=$((tbl_h - 2))
         local old_start new_start
-        old_start=$(scroll_top UPD_ROWS_COUNT $old_selected $cap)
+        old_start=$(scroll_top "$UPD_ROWS_COUNT" "$old_selected" "$cap")
 
         selected=$(( (selected - 1 + UPD_ROWS_COUNT) % UPD_ROWS_COUNT ))
-        while [[ ${UPD_ROWS[$selected]%%:*} == sep || ${UPD_ROWS[$selected]%%:*} == blank ]]; do
+        while [[ "${UPD_ROWS[$selected]%%:*}" == "sep" || "${UPD_ROWS[$selected]%%:*}" == "blank" ]]; do
           selected=$(( (selected - 1 + UPD_ROWS_COUNT) % UPD_ROWS_COUNT ))
         done
 
-new_start=$(scroll_top UPD_ROWS_COUNT $selected $cap)
+        new_start=$(scroll_top "$UPD_ROWS_COUNT" "$selected" "$cap")
         if [[ $new_start == $old_start ]]; then
           draw_update_selection_row $old_selected $selected $old_start $tbl_top $cap
           draw_update_selection_row $selected $selected $old_start $tbl_top $cap
@@ -644,6 +644,22 @@ new_start=$(scroll_top UPD_ROWS_COUNT $selected $cap)
           draw_update_selection_row "$old_selected" "$selected" "$old_start" "$tbl_top" "$cap"
           draw_update_selection_row "$selected" "$selected" "$old_start" "$tbl_top" "$cap"
         fi
+        ;;
+      SPACE)
+        toggle_row_action "$selected"
+        footer_msg=""
+        ;;
+      u|U)
+        set_row_action "$selected" "apply"
+        footer_msg=""
+        ;;
+      r|R)
+        set_row_action "$selected" "delete"
+        footer_msg=""
+        ;;
+      n|N)
+        set_row_action "$selected" "none"
+        footer_msg=""
         ;;
       x|X)
         for ((i=0; i<UPD_INFRA_COUNT; i++)); do
