@@ -2,7 +2,7 @@
 
 Este guia cobre os problemas mais comuns ao acessar os serviços do PlantSuite via navegador, depois que o cluster está instalado e os serviços estão saudáveis. Para cada sintoma, são apresentados a causa provável, como diagnosticar e como corrigir. A lista completa de hosts e o IP do gateway do cluster estão documentados na seção "Acesso aos Serviços" do `README.md` na raiz do repositório.
 
-## 1. Portal não carrega / timeout
+## 1\. Portal não carrega / timeout
 
 **Sintoma**: ao acessar `https://portal.plantsuite.local/` o navegador demora indefinidamente ou retorna timeout. A página nunca chega a renderizar.
 
@@ -68,7 +68,7 @@ Se o IP retornado for o do node (ex.: `192.168.1.80`) em vez do do gateway (ex.:
 
 4. Valide novamente com `getent hosts portal.plantsuite.local` — o IP retornado deve ser o do gateway.
 
-## 2. Aviso de certificado no navegador ("Sua conexão não é privada")
+## 2\. Aviso de certificado no navegador ("Sua conexão não é privada")
 
 **Sintoma**: o navegador exibe "Sua conexão não é privada" / `NET::ERR_CERT_AUTHORITY_INVALID` ao acessar qualquer serviço `*.plantsuite.local` via HTTPS.
 
@@ -94,30 +94,30 @@ Se o IP retornado for o do node (ex.: `192.168.1.80`) em vez do do gateway (ex.:
      Confirmar com `1 added, 0 removed; done.`.
 
    - **macOS**:
-     1. Abra o arquivo `plantsuite-ca.crt`.
-     2. Adicione ao Keychain Access.
-     3. Marque a política de confiança como "Sempre confiar".
+     1\. Abra o arquivo `plantsuite-ca.crt`.
+     2\. Adicione ao Keychain Access.
+     3\. Marque a política de confiança como "Sempre confiar".
 
    - **Windows (Chrome, Edge)**:
-     1. Dê um duplo clique no arquivo `plantsuite-ca.crt`.
-     2. Clique em "Instalar Certificado...".
-     3. Escolha "Máquina Local" (requer administrador) → Avançar.
-     4. Escolha "Colocar todos os certificados no repositório a seguir".
-     5. Clique em "Procurar" e selecione "Autoridades Raiz Confiáveis" (Trusted Root Certification Authorities).
-     6. Avançar → Concluir. Confirme o aviso de segurança com "Sim".
+     1\. Dê um duplo clique no arquivo `plantsuite-ca.crt`.
+     2\. Clique em "Instalar Certificado...".
+     3\. Escolha "Máquina Local" (requer administrador) → Avançar.
+     4\. Escolha "Colocar todos os certificados no repositório a seguir".
+     5\. Clique em "Procurar" e selecione "Autoridades Raiz Confiáveis" (Trusted Root Certification Authorities).
+     6\. Avançar → Concluir. Confirme o aviso de segurança com "Sim".
 
    - **Firefox (qualquer SO)** — mantém trust store própria, separada do sistema:
-     1. Abra o Firefox e digite `about:preferences` na barra de endereços.
-     2. Vá em "Privacy & Security" → "Certificates" → "View Certificates".
-     3. Na aba "Authorities", clique em "Import".
-     4. Selecione o arquivo `plantsuite-ca.crt`.
-     5. Marque "Trust this CA to identify websites" e clique em OK.
+     1\. Abra o Firefox e digite `about:preferences` na barra de endereços.
+     2\. Vá em "Privacy & Security" → "Certificates" → "View Certificates".
+     3\. Na aba "Authorities", clique em "Import".
+     4\. Selecione o arquivo `plantsuite-ca.crt`.
+     5\. Marque "Trust this CA to identify websites" e clique em OK.
 
 3. Feche e reabra o navegador. Acesse novamente — o cadeado deve aparecer sem aviso de certificado.
 
 > **Ambiente de produção**: em produção, configurar um certificado válido na rede (Let's Encrypt ou CA corporativa) para evitar a importação manual em cada máquina. Esta etapa de importação manual é necessária apenas para ambientes de demonstração/homologação.
 
-## 3. DNS resolve IP errado (node vs LoadBalancer)
+## 3\. DNS resolve IP errado (node vs LoadBalancer)
 
 **Sintoma**: `getent hosts` ou `ping` mostra o IP do node (ex.: `192.168.1.80`) em vez do IP do gateway LoadBalancer (ex.: `192.168.1.81`).
 

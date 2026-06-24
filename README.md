@@ -143,33 +143,33 @@ kubectl get secret plantsuite-wildcard-cert -n istio-ingress -o jsonpath='{.data
 **Importar no navegador/sistema:**
 
 - **Linux (Chrome, Chromium, Edge)**: Estes navegadores usam a lista de confiança do sistema operacional.
-  1. Copie o certificado e atualize a lista de confiança:
+  1\. Copie o certificado e atualize a lista de confiança:
      ```bash
      sudo cp plantsuite-ca.crt /usr/local/share/ca-certificates/plantsuite-ca.crt
      sudo update-ca-certificates
      ```
      Confirmar com `1 added, 0 removed; done.`.
-  2. Feche e reabra o navegador.
+  2\. Feche e reabra o navegador.
 
 - **macOS**:
-  1. Abra `plantsuite-ca.crt`.
-  2. Adicione ao Keychain Access, marcando como "Sempre confiar".
+  1\. Abra `plantsuite-ca.crt`.
+  2\. Adicione ao Keychain Access, marcando como "Sempre confiar".
 
 - **Windows (Chrome, Edge)**:
-  1. Dê um duplo clique no arquivo `plantsuite-ca.crt`.
-  2. Clique em "Instalar Certificado...".
-  3. Escolha "Máquina Local" (requer administrador) → Avançar.
-  4. Escolha "Colocar todos os certificados no repositório a seguir".
-  5. Clique em "Procurar" e selecione "Autoridades Raiz Confiáveis" (Trusted Root Certification Authorities).
-  6. Avançar → Concluir. Confirme o aviso de segurança com "Sim".
-  7. Feche e reabra o navegador.
+  1\. Dê um duplo clique no arquivo `plantsuite-ca.crt`.
+  2\. Clique em "Instalar Certificado...".
+  3\. Escolha "Máquina Local" (requer administrador) → Avançar.
+  4\. Escolha "Colocar todos os certificados no repositório a seguir".
+  5\. Clique em "Procurar" e selecione "Autoridades Raiz Confiáveis" (Trusted Root Certification Authorities).
+  6\. Avançar → Concluir. Confirme o aviso de segurança com "Sim".
+  7\. Feche e reabra o navegador.
 
 - **Firefox (qualquer SO)**: O Firefox mantém lista própria de certificados, separada do sistema.
-  1. Abra o Firefox e digite `about:preferences` na barra de endereços.
-  2. Vá em "Privacy & Security" → "Certificates" → "View Certificates".
-  3. Na aba "Authorities", clique em "Import".
-  4. Selecione o arquivo `plantsuite-ca.crt`.
-  5. Marque "Trust this CA to identify websites" e clique em OK.
+  1\. Abra o Firefox e digite `about:preferences` na barra de endereços.
+  2\. Vá em "Privacy & Security" → "Certificates" → "View Certificates".
+  3\. Na aba "Authorities", clique em "Import".
+  4\. Selecione o arquivo `plantsuite-ca.crt`.
+  5\. Marque "Trust this CA to identify websites" e clique em OK.
 
 > **Ambiente de produção**: em produção configurar um certificado válido na rede (ex.: Let's Encrypt ou CA corporativa) para que os navegadores confiem no certificado sem necessidade de importação manual em cada máquina. Esta etapa de importação manual é necessária apenas para ambientes de demonstração/homologação.
 
