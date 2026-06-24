@@ -12,6 +12,7 @@ Workspace knowledge base for the PlantSuite Kubernetes deployment stack.
 - [Resources](conventions/resources.md) — requests, limits, HPA, PDB, topology
 - [Probes](conventions/probes.md) — startup, readiness, liveness patterns
 - [Labels](conventions/labels.md) — standard labels, selectors, matching
+- [Markdown / GitHub](conventions/markdown-github.md) — comportamento do GitHub com numeração
 
 ## Domain
 - [PlantSuite Services](domain/plantsuite-services.md) — 17 microservices, images, ports

@@ -34,13 +34,13 @@ If the returned IP is the node's (e.g., `192.168.1.80`) instead of the gateway's
 
 ### How to fix
 
-1. Obtain the correct gateway IP from the cluster:
+<ol>
+<li>Obtain the correct gateway IP from the cluster:
 
    ```bash
    kubectl get svc -n istio-ingress gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-   ```
-
-2. Edit the local hosts file, adding all service entries pointing to that IP:
+   ```</li>
+<li>Edit the local hosts file, adding all service entries pointing to that IP:
    - Linux / macOS: `/etc/hosts`
    - Windows: `C:\Windows\System32\drivers\etc\hosts` (open as administrator)
 
@@ -62,11 +62,10 @@ If the returned IP is the node's (e.g., `192.168.1.80`) instead of the gateway's
    <INGRESS_IP> spc.plantsuite.local
    <INGRESS_IP> tenants.plantsuite.local
    <INGRESS_IP> timeseries.plantsuite.local
-   ```
-
-3. Clear the browser DNS cache (close and reopen the browser, or use `about:networking#dns` → Clear DNS cache in Firefox). On Windows, run `ipconfig /flushdns`.
-
-4. Validate again with `getent hosts portal.plantsuite.local` — the returned IP should be the gateway's.
+   ```</li>
+<li>Clear the browser DNS cache (close and reopen the browser, or use `about:networking#dns` → Clear DNS cache in Firefox). On Windows, run `ipconfig /flushdns`.</li>
+<li>Validate again with `getent hosts portal.plantsuite.local` — the returned IP should be the gateway's.</li>
+</ol>
 
 ## 2\. Browser certificate warning ("Your connection is not private")
 
@@ -76,13 +75,13 @@ If the returned IP is the node's (e.g., `192.168.1.80`) instead of the gateway's
 
 ### How to resolve
 
-1. Extract the CA certificate from the cluster:
+<ol>
+<li>Extract the CA certificate from the cluster:
 
    ```bash
    kubectl get secret plantsuite-wildcard-cert -n istio-ingress -o jsonpath='{.data.ca\.crt}' | base64 -d > plantsuite-ca.crt
-   ```
-
-2. Import the `plantsuite-ca.crt` file into the operating system or browser, as appropriate:
+   ```</li>
+<li>Import the `plantsuite-ca.crt` file into the operating system or browser, as appropriate:
 
    - **Linux (Chrome, Chromium, Edge)** — use the system trust store:
 
@@ -94,26 +93,32 @@ If the returned IP is the node's (e.g., `192.168.1.80`) instead of the gateway's
      Confirm the output shows `1 added, 0 removed; done.`.
 
    - **macOS**:
-     1\. Open the `plantsuite-ca.crt` file.
-     2\. Add it to Keychain Access.
-     3\. Set the trust policy to "Always trust".
+     <ol>
+     <li>Open the `plantsuite-ca.crt` file.</li>
+     <li>Add it to Keychain Access.</li>
+     <li>Set the trust policy to "Always trust".</li>
+     </ol>
 
    - **Windows (Chrome, Edge)**:
-     1\. Double-click the `plantsuite-ca.crt` file.
-     2\. Click "Install Certificate...".
-     3\. Choose "Local Machine" (requires administrator) → Next.
-     4\. Choose "Place all certificates in the following store".
-     5\. Click "Browse" and select "Trusted Root Certification Authorities".
-     6\. Next → Finish. Confirm the security warning with "Yes".
+     <ol>
+     <li>Double-click the `plantsuite-ca.crt` file.</li>
+     <li>Click "Install Certificate...".</li>
+     <li>Choose "Local Machine" (requires administrator) → Next.</li>
+     <li>Choose "Place all certificates in the following store".</li>
+     <li>Click "Browse" and select "Trusted Root Certification Authorities".</li>
+     <li>Next → Finish. Confirm the security warning with "Yes".</li>
+     </ol>
 
    - **Firefox (any OS)** — maintains its own trust store, separate from the system:
-     1\. Open Firefox and type `about:preferences` in the address bar.
-     2\. Go to "Privacy & Security" → "Certificates" → "View Certificates".
-     3\. On the "Authorities" tab, click "Import".
-     4\. Select the `plantsuite-ca.crt` file.
-     5\. Check "Trust this CA to identify websites" and click OK.
-
-3. Close and reopen the browser. Access the service again — the padlock should appear without a certificate warning.
+     <ol>
+     <li>Open Firefox and type `about:preferences` in the address bar.</li>
+     <li>Go to "Privacy & Security" → "Certificates" → "View Certificates".</li>
+     <li>On the "Authorities" tab, click "Import".</li>
+     <li>Select the `plantsuite-ca.crt` file.</li>
+     <li>Check "Trust this CA to identify websites" and click OK.</li>
+     </ol></li>
+<li>Close and reopen the browser. Access the service again — the padlock should appear without a certificate warning.</li>
+</ol>
 
 > **Production environment**: in production, configure a valid certificate on the network (Let's Encrypt or a corporate CA) to avoid manual import on each machine. This manual import step is only required for demonstration/staging environments.
 
@@ -146,13 +151,14 @@ openssl s_client -connect <NODE_IP>:443
 
 ### How to fix
 
-1. Update the LAN DNS (or the local `/etc/hosts`) so all `*.plantsuite.local` hosts point to the LoadBalancer IP obtained above.
-
-2. If the MetalLB pool is exhausted (only a single `/32` IP already in use by the gateway), expand the pool before provisioning new LoadBalancers. To inspect the current pool:
+<ol>
+<li>Update the LAN DNS (or the local `/etc/hosts`) so all `*.plantsuite.local` hosts point to the LoadBalancer IP obtained above.</li>
+<li>If the MetalLB pool is exhausted (only a single `/32` IP already in use by the gateway), expand the pool before provisioning new LoadBalancers. To inspect the current pool:
 
    ```bash
    kubectl get IPAddressPool -A -o yaml
-   ```
+   ```</li>
+</ol>
 
 ## Notes
 

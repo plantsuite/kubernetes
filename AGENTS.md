@@ -34,6 +34,21 @@ Delegation is mandatory; team size scales with the work (one specialist is fine)
 
 Be concise when speaking to the user. Say what matters, skip the rest. No preambles, no filler, no obvious explanations. Answer directly.
 
+## Markdown / GitHub
+
+GitHub's markdown renderer has quirks that affect numbered lists and headers. Follow these rules to avoid unexpected formatting:
+
+1. **Numbered headers** — always escape the dot: `## 1\. Title` (not `## 1. Title`). GitHub converts unescaped `## 1.` into Roman numerals (e.g., "I." instead of "1.").
+
+2. **Ordered lists inside bullets** — when a list item is nested under a bullet (`- `), use HTML `<ol><li>` instead of markdown `1. 2. 3.`. GitHub renders markdown ordered lists inside bullets as Roman numerals (i, ii, iii…).
+
+3. **Standalone ordered lists** — markdown `1. 2. 3.` works normally when not nested inside a bullet. No special handling needed.
+
+4. **Preview before commit** — use `grip` to test locally:
+   ```
+   pip install grip && grip <file>.md
+   ```
+
 ## Instruction Priority
 
 1. **User instructions** — highest.

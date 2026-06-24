@@ -34,13 +34,13 @@ Se o IP retornado for o do node (ex.: `192.168.1.80`) em vez do do gateway (ex.:
 
 ### Como corrigir
 
-1. Obtenha o IP correto do gateway do cluster:
+<ol>
+<li>Obtenha o IP correto do gateway do cluster:
 
    ```bash
    kubectl get svc -n istio-ingress gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-   ```
-
-2. Edite o arquivo de hosts local adicionando todas as entradas dos serviços apontando para esse IP:
+   ```</li>
+<li>Edite o arquivo de hosts local adicionando todas as entradas dos serviços apontando para esse IP:
    - Linux / macOS: `/etc/hosts`
    - Windows: `C:\Windows\System32\drivers\etc\hosts` (abrir como administrador)
 
@@ -62,11 +62,10 @@ Se o IP retornado for o do node (ex.: `192.168.1.80`) em vez do do gateway (ex.:
    <INGRESS_IP> spc.plantsuite.local
    <INGRESS_IP> tenants.plantsuite.local
    <INGRESS_IP> timeseries.plantsuite.local
-   ```
-
-3. Limpe o cache de DNS do navegador (feche e reabra o navegador, ou use `about:networking#dns` → Clear DNS cache no Firefox). No Windows, rode `ipconfig /flushdns`.
-
-4. Valide novamente com `getent hosts portal.plantsuite.local` — o IP retornado deve ser o do gateway.
+   ```</li>
+<li>Limpe o cache de DNS do navegador (feche e reabra o navegador, ou use `about:networking#dns` → Clear DNS cache no Firefox). No Windows, rode `ipconfig /flushdns`.</li>
+<li>Valide novamente com `getent hosts portal.plantsuite.local` — o IP retornado deve ser o do gateway.</li>
+</ol>
 
 ## 2\. Aviso de certificado no navegador ("Sua conexão não é privada")
 
@@ -76,13 +75,13 @@ Se o IP retornado for o do node (ex.: `192.168.1.80`) em vez do do gateway (ex.:
 
 ### Como resolver
 
-1. Extraia o certificado CA do cluster:
+<ol>
+<li>Extraia o certificado CA do cluster:
 
    ```bash
    kubectl get secret plantsuite-wildcard-cert -n istio-ingress -o jsonpath='{.data.ca\.crt}' | base64 -d > plantsuite-ca.crt
-   ```
-
-2. Importe o arquivo `plantsuite-ca.crt` no sistema operacional ou navegador, conforme o caso:
+   ```</li>
+<li>Importe o arquivo `plantsuite-ca.crt` no sistema operacional ou navegador, conforme o caso:
 
    - **Linux (Chrome, Chromium, Edge)** — usam a trust store do sistema:
 
@@ -94,26 +93,32 @@ Se o IP retornado for o do node (ex.: `192.168.1.80`) em vez do do gateway (ex.:
      Confirmar com `1 added, 0 removed; done.`.
 
    - **macOS**:
-     1\. Abra o arquivo `plantsuite-ca.crt`.
-     2\. Adicione ao Keychain Access.
-     3\. Marque a política de confiança como "Sempre confiar".
+     <ol>
+     <li>Abra o arquivo `plantsuite-ca.crt`.</li>
+     <li>Adicione ao Keychain Access.</li>
+     <li>Marque a política de confiança como "Sempre confiar".</li>
+     </ol>
 
    - **Windows (Chrome, Edge)**:
-     1\. Dê um duplo clique no arquivo `plantsuite-ca.crt`.
-     2\. Clique em "Instalar Certificado...".
-     3\. Escolha "Máquina Local" (requer administrador) → Avançar.
-     4\. Escolha "Colocar todos os certificados no repositório a seguir".
-     5\. Clique em "Procurar" e selecione "Autoridades Raiz Confiáveis" (Trusted Root Certification Authorities).
-     6\. Avançar → Concluir. Confirme o aviso de segurança com "Sim".
+     <ol>
+     <li>Dê um duplo clique no arquivo `plantsuite-ca.crt`.</li>
+     <li>Clique em "Instalar Certificado...".</li>
+     <li>Escolha "Máquina Local" (requer administrador) → Avançar.</li>
+     <li>Escolha "Colocar todos os certificados no repositório a seguir".</li>
+     <li>Clique em "Procurar" e selecione "Autoridades Raiz Confiáveis" (Trusted Root Certification Authorities).</li>
+     <li>Avançar → Concluir. Confirme o aviso de segurança com "Sim".</li>
+     </ol>
 
    - **Firefox (qualquer SO)** — mantém trust store própria, separada do sistema:
-     1\. Abra o Firefox e digite `about:preferences` na barra de endereços.
-     2\. Vá em "Privacy & Security" → "Certificates" → "View Certificates".
-     3\. Na aba "Authorities", clique em "Import".
-     4\. Selecione o arquivo `plantsuite-ca.crt`.
-     5\. Marque "Trust this CA to identify websites" e clique em OK.
-
-3. Feche e reabra o navegador. Acesse novamente — o cadeado deve aparecer sem aviso de certificado.
+     <ol>
+     <li>Abra o Firefox e digite `about:preferences` na barra de endereços.</li>
+     <li>Vá em "Privacy & Security" → "Certificates" → "View Certificates".</li>
+     <li>Na aba "Authorities", clique em "Import".</li>
+     <li>Selecione o arquivo `plantsuite-ca.crt`.</li>
+     <li>Marque "Trust this CA to identify websites" e clique em OK.</li>
+     </ol></li>
+<li>Feche e reabra o navegador. Acesse novamente — o cadeado deve aparecer sem aviso de certificado.</li>
+</ol>
 
 > **Ambiente de produção**: em produção, configurar um certificado válido na rede (Let's Encrypt ou CA corporativa) para evitar a importação manual em cada máquina. Esta etapa de importação manual é necessária apenas para ambientes de demonstração/homologação.
 
@@ -146,13 +151,14 @@ openssl s_client -connect <IP_DO_NODE>:443
 
 ### Como corrigir
 
-1. Atualize o DNS da LAN (ou o `/etc/hosts` local) para apontar todos os hosts `*.plantsuite.local` para o IP do LoadBalancer obtido acima.
-
-2. Se o pool do MetalLB estiver esgotado (apenas um IP `/32` já em uso pelo gateway), expanda o pool antes de provisionar novos LoadBalancers. Para conferir o pool atual:
+<ol>
+<li>Atualize o DNS da LAN (ou o `/etc/hosts` local) para apontar todos os hosts `*.plantsuite.local` para o IP do LoadBalancer obtido acima.</li>
+<li>Se o pool do MetalLB estiver esgotado (apenas um IP `/32` já em uso pelo gateway), expanda o pool antes de provisionar novos LoadBalancers. Para conferir o pool atual:
 
    ```bash
    kubectl get IPAddressPool -A -o yaml
-   ```
+   ```</li>
+</ol>
 
 ## Observações
 
