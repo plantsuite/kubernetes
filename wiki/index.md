@@ -26,6 +26,7 @@ Workspace knowledge base for the PlantSuite Kubernetes deployment stack.
 - [Percona Operators](decisions/percona-operators.md) — why Percona for DBs
 - [Self-Signed Certificates](decisions/self-signed-certificates.md) — why self-signed issuer
 - [Redis Readiness Probe — Branch-Aware](decisions/redis-readiness-probe-branch-aware.md) — standalone vs cluster probe branching
+- [Ordered Lists in GitHub Bullets](decisions/ordered-lists-github-roman.md) — type="1" for decimal, roman numerals, GitHub rendering
 
 ## Skill Candidates
 - [Kustomize Overlay Creation](skill-candidates/kustomize-overlay-creation.md) — adding new environments

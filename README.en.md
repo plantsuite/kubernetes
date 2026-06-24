@@ -143,7 +143,7 @@ kubectl get secret plantsuite-wildcard-cert -n istio-ingress -o jsonpath='{.data
 **Import into browser/system:**
 
 - **Linux (Chrome, Chromium, Edge)**: These browsers use the operating system's trust store.
-  <ol>
+  <ol type="1">
   <li>Copy the certificate and update the trust store:
      ```bash
      sudo cp plantsuite-ca.crt /usr/local/share/ca-certificates/plantsuite-ca.crt
@@ -154,13 +154,13 @@ kubectl get secret plantsuite-wildcard-cert -n istio-ingress -o jsonpath='{.data
   </ol>
 
 - **macOS**:
-  <ol>
+  <ol type="1">
   <li>Open `plantsuite-ca.crt`.</li>
   <li>Add it to Keychain Access, marking it as "Always trust".</li>
   </ol>
 
 - **Windows (Chrome, Edge)**:
-  <ol>
+  <ol type="1">
   <li>Double-click the `plantsuite-ca.crt` file.</li>
   <li>Click "Install Certificate...".</li>
   <li>Choose "Local Machine" (requires administrator) → Next.</li>
@@ -171,7 +171,7 @@ kubectl get secret plantsuite-wildcard-cert -n istio-ingress -o jsonpath='{.data
   </ol>
 
 - **Firefox (any OS)**: Firefox maintains its own certificate store, separate from the system.
-  <ol>
+  <ol type="1">
   <li>Open Firefox and type `about:preferences` in the address bar.</li>
   <li>Go to "Privacy & Security" → "Certificates" → "View Certificates".</li>
   <li>In the "Authorities" tab, click "Import".</li>

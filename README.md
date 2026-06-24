@@ -143,7 +143,7 @@ kubectl get secret plantsuite-wildcard-cert -n istio-ingress -o jsonpath='{.data
 **Importar no navegador/sistema:**
 
 - **Linux (Chrome, Chromium, Edge)**: Estes navegadores usam a lista de confiança do sistema operacional.
-  <ol>
+  <ol type="1">
   <li>Copie o certificado e atualize a lista de confiança:
      ```bash
      sudo cp plantsuite-ca.crt /usr/local/share/ca-certificates/plantsuite-ca.crt
@@ -154,13 +154,13 @@ kubectl get secret plantsuite-wildcard-cert -n istio-ingress -o jsonpath='{.data
   </ol>
 
 - **macOS**:
-  <ol>
+  <ol type="1">
   <li>Abra `plantsuite-ca.crt`.</li>
   <li>Adicione ao Keychain Access, marcando como "Sempre confiar".</li>
   </ol>
 
 - **Windows (Chrome, Edge)**:
-  <ol>
+  <ol type="1">
   <li>Dê um duplo clique no arquivo `plantsuite-ca.crt`.</li>
   <li>Clique em "Instalar Certificado...".</li>
   <li>Escolha "Máquina Local" (requer administrador) → Avançar.</li>
@@ -171,7 +171,7 @@ kubectl get secret plantsuite-wildcard-cert -n istio-ingress -o jsonpath='{.data
   </ol>
 
 - **Firefox (qualquer SO)**: O Firefox mantém lista própria de certificados, separada do sistema.
-  <ol>
+  <ol type="1">
   <li>Abra o Firefox e digite `about:preferences` na barra de endereços.</li>
   <li>Vá em "Privacy & Security" → "Certificates" → "View Certificates".</li>
   <li>Na aba "Authorities", clique em "Import".</li>

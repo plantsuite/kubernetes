@@ -34,7 +34,7 @@ Se o IP retornado for o do node (ex.: `192.168.1.80`) em vez do do gateway (ex.:
 
 ### Como corrigir
 
-<ol>
+<ol type="1">
 <li>Obtenha o IP correto do gateway do cluster:
 
    ```bash
@@ -75,7 +75,7 @@ Se o IP retornado for o do node (ex.: `192.168.1.80`) em vez do do gateway (ex.:
 
 ### Como resolver
 
-<ol>
+<ol type="1">
 <li>Extraia o certificado CA do cluster:
 
    ```bash
@@ -93,14 +93,14 @@ Se o IP retornado for o do node (ex.: `192.168.1.80`) em vez do do gateway (ex.:
      Confirmar com `1 added, 0 removed; done.`.
 
    - **macOS**:
-     <ol>
+     <ol type="1">
      <li>Abra o arquivo `plantsuite-ca.crt`.</li>
      <li>Adicione ao Keychain Access.</li>
      <li>Marque a política de confiança como "Sempre confiar".</li>
      </ol>
 
    - **Windows (Chrome, Edge)**:
-     <ol>
+     <ol type="1">
      <li>Dê um duplo clique no arquivo `plantsuite-ca.crt`.</li>
      <li>Clique em "Instalar Certificado...".</li>
      <li>Escolha "Máquina Local" (requer administrador) → Avançar.</li>
@@ -110,7 +110,7 @@ Se o IP retornado for o do node (ex.: `192.168.1.80`) em vez do do gateway (ex.:
      </ol>
 
    - **Firefox (qualquer SO)** — mantém trust store própria, separada do sistema:
-     <ol>
+     <ol type="1">
      <li>Abra o Firefox e digite `about:preferences` na barra de endereços.</li>
      <li>Vá em "Privacy & Security" → "Certificates" → "View Certificates".</li>
      <li>Na aba "Authorities", clique em "Import".</li>
@@ -151,7 +151,7 @@ openssl s_client -connect <IP_DO_NODE>:443
 
 ### Como corrigir
 
-<ol>
+<ol type="1">
 <li>Atualize o DNS da LAN (ou o `/etc/hosts` local) para apontar todos os hosts `*.plantsuite.local` para o IP do LoadBalancer obtido acima.</li>
 <li>Se o pool do MetalLB estiver esgotado (apenas um IP `/32` já em uso pelo gateway), expanda o pool antes de provisionar novos LoadBalancers. Para conferir o pool atual:
 

@@ -27,10 +27,12 @@ Listas numeradas que estão aninhadas dentro de um bullet (`- item`) também sã
     2. Passo dois  → renderiza como "ii. Passo dois"
 ```
 
-**Correção**: usar HTML `<ol><li>`:
+**Correção**: usar HTML `<ol type="1"><li>`.
+O CSS do GitHub aplica `list-style: lower-roman` a qualquer `<ol>` descendente de `<ul>`/`<ol>`, fazendo listas aninhadas virarem algarismos romanos (i. ii. iii.). O atributo `type="1"` sobrescreve esse comportamento e força renderização decimal (1. 2. 3.).
+
 ```markdown
 - Item
-    <ol>
+    <ol type="1">
     <li>Passo um</li>
     <li>Passo dois</li>
     </ol>
@@ -58,5 +60,5 @@ Abra `localhost:6419` no browser para ver a renderização idêntica ao GitHub.
 ## Regra geral
 
 - **Headers numerados**: sempre usar `## 1\. Título` (com escape).
-- **Listas ordenadas dentro de bullets**: sempre usar `<ol><li>` (HTML).
+- **Listas ordenadas dentro de bullets**: sempre usar `<ol type="1"><li>` (HTML com `type="1"` para forçar decimal).
 - **Listas ordenadas soltas**: pode usar markdown `1. 2. 3.` normalmente.

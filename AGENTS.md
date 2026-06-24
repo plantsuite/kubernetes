@@ -40,7 +40,7 @@ GitHub's markdown renderer has quirks that affect numbered lists and headers. Fo
 
 1. **Numbered headers** — always escape the dot: `## 1\. Title` (not `## 1. Title`). GitHub converts unescaped `## 1.` into Roman numerals (e.g., "I." instead of "1.").
 
-2. **Ordered lists inside bullets** — when a list item is nested under a bullet (`- `), use HTML `<ol><li>` instead of markdown `1. 2. 3.`. GitHub renders markdown ordered lists inside bullets as Roman numerals (i, ii, iii…).
+2. **Ordered lists inside bullets** — when a list item is nested under a bullet (`- `), use HTML `<ol type="1"><li>` instead of markdown `1. 2. 3.`. GitHub renders markdown ordered lists inside bullets as Roman numerals (i, ii, iii…), and the `type="1"` attribute overrides that to force decimal.
 
 3. **Standalone ordered lists** — markdown `1. 2. 3.` works normally when not nested inside a bullet. No special handling needed.
 
