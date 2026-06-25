@@ -160,7 +160,115 @@ openssl s_client -connect <IP_DO_NODE>:443
    ```</li>
 </ol>
 
+## 4\. Redis preso em loop de bootstrap (REPLICAS=6 em ambiente demo)
+
+**Sintoma**: o Pod `plantsuite-redis-0` (namespace `redis`) fica em loop no log do container `init-cluster` com a mensagem `[init-cluster] Waiting for plantsuite-redis-1...`, a `readinessProbe` falha repetidamente, e o Pod acumula restarts. O log do container `redis` mostra `REPLICAS=6 PRIMARIES=3` e `Running mode=cluster`, mesmo em um cluster demo (single-node) onde só o `plantsuite-redis-0` deveria existir.
+
+**Causa provável**: o StatefulSet em runtime no cluster tem `replicas=6` (estado resultante de um deploy anterior da base/production), e o overlay demo (`replicas: 1`) nunca foi aplicado sobre ele. O script `init-cluster.sh` lê o valor `6` direto do StatefulSet, entra no caminho de inicialização em modo cluster, e fica aguardando 5 peers (`plantsuite-redis-1` até `plantsuite-redis-5`) que nunca sobem, pois o ambiente não os provisiona. O `readinessProbe` (que avalia `cluster_state:ok` quando `REPLICAS>1`) também falha, perpetuando o ciclo de restarts.
+
+### Como diagnosticar
+
+Verifique quantas réplicas o StatefulSet tem em runtime:
+
+```bash
+kubectl get statefulset plantsuite-redis -n redis -o jsonpath='{.spec.replicas}'
+```
+
+Se retornar `6`, o overlay demo não está aplicado.
+
+Inspecione o log do init container que detecta o número de réplicas:
+
+```bash
+kubectl logs plantsuite-redis-0 -c get-replicas -n redis
+```
+
+A saída deve mostrar `Detected N replicas from StatefulSet`, onde `N` reflete o `.spec.replicas` em runtime.
+
+Confirme o modo de execução e o loop no log do Redis:
+
+```bash
+kubectl logs plantsuite-redis-0 -c redis -n redis --tail=30
+```
+
+Procure por `Running mode=cluster` e pelas mensagens repetidas de espera por `plantsuite-redis-1`.
+
+Compare com o manifest renderizado pelo overlay demo (esperado `replicas: 1`):
+
+```bash
+kubectl kustomize k8s/overlays/demo/redis/ | grep -A2 replicas
+```
+
+Se o valor renderizado for `1` mas o cluster tem `6`, confirma-se o desalinhamento entre o manifest desejado e o estado em runtime.
+
+### Como corrigir (em janela de manutenção)
+
+<ol type="1">
+<li>Confirme o contexto-alvo antes de qualquer alteração:
+
+   ```bash
+   kubectl config current-context
+   ```</li>
+<li>Faça backup do StatefulSet atual (opcional, recomendado):
+
+   ```bash
+   kubectl get statefulset plantsuite-redis -n redis -o yaml > /tmp/redis-sts-backup.yaml
+   ```</li>
+<li>Deletar o StatefulSet antigo. <strong>Atenção</strong>: os PVCs vinculados <strong>NÃO</strong> são tocados por essa operação; os dados do Redis são preservados.
+
+   ```bash
+   kubectl delete statefulset plantsuite-redis -n redis
+   ```</li>
+<li>Aplicar o overlay demo (que renderiza `replicas: 1`):
+
+   ```bash
+   kubectl apply -k k8s/overlays/demo/redis/
+   ```</li>
+<li>Acompanhar a subida do Pod:
+
+   ```bash
+   kubectl get pods -n redis -l app=redis -w
+   ```
+
+   Aguarde até `plantsuite-redis-0` atingir `1/1 Running` (Ready).</li>
+</ol>
+
+### Pós-remediação (validação)
+
+Confirme que o número de réplicas detectado voltou a `1`:
+
+```bash
+kubectl logs plantsuite-redis-0 -c get-replicas -n redis
+```
+
+Deve mostrar `Detected 1 replicas`.
+
+Confirme a mudança de modo de execução:
+
+```bash
+kubectl logs plantsuite-redis-0 -c redis -n redis --tail=20
+```
+
+Deve mostrar `Running mode=standalone`.
+
+Confirme o estado do Pod:
+
+```bash
+kubectl get pod plantsuite-redis-0 -n redis
+```
+
+Deve mostrar `1/1 Running` com `READY 1/1`.
+
+### Notas
+
+- **PVCs persistem após `delete statefulset`**: os volumes (`data-plantsuite-redis-0`) não são removidos pela exclusão do StatefulSet, então os dados do Redis são mantidos. Remova o PVC explicitamente apenas se quiser zerar o estado do Redis:
+  ```bash
+  kubectl delete pvc data-plantsuite-redis-0 -n redis
+  ```
+- **`kubectl apply -k` direto sem delete pode não convergir** de `replicas=6` para `replicas=1` por conta do 3-way merge do Kubernetes preservar o campo `replicas` em runtime. O fluxo `delete` + `apply -k` é mais seguro para corrigir o desalinhamento.
+- **readinessProbe branch-aware (hardening preventivo)**: a `readinessProbe` do `k8s/base/redis/statefulset.yaml` (linhas 201-219) foi ajustada para distinguir modo `standalone` (`REPLICAS=1`) de modo `cluster` (`REPLICAS>1`), evitando falsos negativos de prontidão em ambientes demo. Essa mudança é uma melhoria de hardening e <strong>não resolve</strong> o incidente operacional descrito acima — a causa raiz é o desalinhamento entre o overlay aplicado e o estado em runtime. A decisão está registrada em `wiki/decisions/redis-readiness-probe-branch-aware.md` e a convenção de probes em `wiki/conventions/probes.md`.
+
 ## Observações
 
 - **Ping falha mas HTTPS funciona**: em clusters com MetalLB modo L2, o VIP do LoadBalancer não responde ICMP. Teste com `curl` ou `openssl s_client` em vez de `ping` para validar o acesso.
 - **Lista completa de hosts**: ver a seção "Acesso aos Serviços" do `README.md` na raiz do repositório.
+- **PVCs persistem após exclusão de StatefulSet**: ao deletar um StatefulSet (ex.: Redis), os PVCs vinculados não são removidos automaticamente — os dados são preservados. Remova os PVCs explicitamente apenas se desejar zerar o estado.
