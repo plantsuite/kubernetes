@@ -176,7 +176,14 @@ collect_local_health() {
 
   CLUSTER_NODES_OUT=$(redis_local cluster nodes)
   MYSELF_LINE=$(echo "${CLUSTER_NODES_OUT}" | grep ' myself')
-  SELF_ROLE=$(echo "${MYSELF_LINE}" | awk '{print $3}' | sed 's/,/ /g' | awk '{print $1}')
+  # Extrai o papel real (master|slave) da coluna de flags. A coluna pode conter
+  # multiplas flags separadas por virgula (ex: "myself,slave", "myself,master").
+  # O `sed` troca virgulas por espacos e o `awk` seleciona o token que nao e
+  # "myself" — assim obtemos "master" ou "slave" em vez de "myself".
+  # BUG CORRIGIDO: antes `awk '{print $1}'` retornava sempre "myself", o que
+  # fazia heal_replication() nunca disparar (ela so age quando SELF_ROLE=slave)
+  # e impedia o auto-reparo de replicas com master_link_status=down.
+  SELF_ROLE=$(echo "${MYSELF_LINE}" | awk '{print $3}' | sed 's/,/ /g' | awk '{for(i=1;i<=NF;i++) if($i!="myself"){print $i; exit}}')
   STALE_NODES=$(echo "${CLUSTER_NODES_OUT}" | grep -cE '(fail|noaddr)' 2>/dev/null) || STALE_NODES=0
 
   # master: verifica contagem de slots; replica: verifica link de replicacao
