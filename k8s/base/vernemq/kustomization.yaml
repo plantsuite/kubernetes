@@ -42,3 +42,29 @@ patches:
         ports:
           - port: 8080
             appProtocol: kubernetes.io/ws
+  # Kustomize v5.8.0+ NamespaceTransformer skips helm-rendered resources, so
+  # metadata.namespace is no longer auto-injected. The VerneMQ chart templates
+  # (StatefulSet, Service, headless Service) omit namespace: {{ .Release.Namespace }},
+  # so these JSON6902 patches force it as a workaround.
+  # Ref: https://github.com/kubernetes-sigs/kustomize/issues/6058
+  - target:
+      kind: StatefulSet
+      name: plantsuite-vmq
+    patch: |-
+      - op: add
+        path: /metadata/namespace
+        value: vernemq
+  - target:
+      kind: Service
+      name: plantsuite-vmq
+    patch: |-
+      - op: add
+        path: /metadata/namespace
+        value: vernemq
+  - target:
+      kind: Service
+      name: plantsuite-vmq-headless
+    patch: |-
+      - op: add
+        path: /metadata/namespace
+        value: vernemq
