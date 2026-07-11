@@ -161,9 +161,7 @@ generate_secure_password() {
     fi
   fi
 
-  cat > "$env_file" <<EOF
-$key=$password
-EOF
+  set_env_value "$env_file" "$key" "$password"
 
   # Redis é dependência de VerneMQ e PlantSuite: sincroniza os .env.secret locais.
   if [ "$env_file" = "k8s/base/redis/.env.secret" ] && [ "$key" = "password" ]; then
@@ -214,19 +212,14 @@ update_keycloak_secrets() {
   local auth_introspection_secret="$existing_auth_secret"
   local tenants_admin_secret="$existing_tenants_secret"
 
-  if [ -z "$auth_introspection_secret" ]; then
-    auth_introspection_secret=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
-  fi
-  if [ -z "$tenants_admin_secret" ]; then
-    tenants_admin_secret=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
-  fi
+  set_env_value "$env_file" "db_username" "$db_username"
+  set_env_value "$env_file" "db_password" "$db_password"
+  generate_secure_password "$env_file" "client-secret_ps-auth-introspection"
+  generate_secure_password "$env_file" "client-secret_ps-tenants-admin"
 
-  cat > "$env_file" <<EOF
-db_username=$db_username
-db_password=$db_password
-client-secret_ps-auth-introspection=$auth_introspection_secret
-client-secret_ps-tenants-admin=$tenants_admin_secret
-EOF
+  # Recarrega os valores efetivos após geração/preservação.
+  auth_introspection_secret=$(get_env_value "$env_file" "client-secret_ps-auth-introspection")
+  tenants_admin_secret=$(get_env_value "$env_file" "client-secret_ps-tenants-admin")
 
   # Mantém PlantSuite alinhado aos client secrets mais recentes do Keycloak.
   sync_keycloak_client_secrets_dependents "$tenants_admin_secret" "$auth_introspection_secret"
@@ -424,16 +417,7 @@ update_plantsuite_env() {
   set_env_value "$env_file" "MessageBus__RabbitMQ__User" "$rmq_user"
   set_env_value "$env_file" "MessageBus__RabbitMQ__Password" "$rmq_pass"
 
-  local mqtt_pass
-  mqtt_pass=$(get_env_value "$env_file" "MessageBus__MQTT__Password")
-  if [ -z "$mqtt_pass" ]; then
-    mqtt_pass=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
-  fi
-  if [ -z "$mqtt_pass" ]; then
-    error "Não foi possível gerar senha do MQTT."
-    return 1
-  fi
-  set_env_value "$env_file" "MessageBus__MQTT__Password" "$mqtt_pass"
+  generate_secure_password "$env_file" "MessageBus__MQTT__Password"
 
   local kc_admin kc_intro
   # Preferência: .env.secret local do Keycloak -> Secret no cluster
@@ -461,11 +445,10 @@ update_gateway_env() {
   klog "Atualizando secrets do gateway..."
   sanitize_env_file "$gw_env_file"
 
-  local instance_id instance_name localauth_user localauth_pass
+  local instance_id instance_name localauth_user
   instance_id=$(get_env_value "$gw_env_file" "Instance__Id")
   instance_name=$(get_env_value "$gw_env_file" "Instance__Name")
   localauth_user=$(get_env_value "$gw_env_file" "LocalAuth__Username")
-  localauth_pass=$(get_env_value "$gw_env_file" "LocalAuth__Password")
 
   if [ -z "$instance_id" ]; then
     # Tenta preservar UUID do secret existente no cluster (evita divergência com o SQLite)
@@ -487,18 +470,11 @@ update_gateway_env() {
 
   [ -z "$localauth_user" ] && localauth_user="admin"
 
-  if [ -z "$localauth_pass" ]; then
-    localauth_pass=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
-  fi
-  if [ -z "$localauth_pass" ]; then
-    error "Não foi possível gerar senha para LocalAuth__Password do gateway."
-    return 1
-  fi
+  generate_secure_password "$gw_env_file" "LocalAuth__Password"
 
   set_env_value "$gw_env_file" "Instance__Id" "$instance_id"
   set_env_value "$gw_env_file" "Instance__Name" "$instance_name"
   set_env_value "$gw_env_file" "LocalAuth__Username" "$localauth_user"
-  set_env_value "$gw_env_file" "LocalAuth__Password" "$localauth_pass"
 
   klog "Arquivo atualizado: $gw_env_file"
 }

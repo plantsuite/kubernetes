@@ -2,3 +2,11 @@ namespace: mongodb
 
 resources:
   - plantsuite-psmdb.yaml
+
+secretGenerator:
+  - name: plantsuite-psmdb-secrets
+    envs:
+      - .env.secret
+
+generatorOptions:
+  disableNameSuffixHash: true

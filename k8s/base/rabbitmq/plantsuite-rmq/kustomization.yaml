@@ -2,3 +2,11 @@ namespace: rabbitmq
 
 resources:
   - plantsuite-rmq.yaml
+
+secretGenerator:
+  - name: plantsuite-rmq-default-user
+    envs:
+      - .env.secret
+
+generatorOptions:
+  disableNameSuffixHash: true

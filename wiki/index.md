@@ -7,7 +7,7 @@ Workspace knowledge base for the PlantSuite Kubernetes deployment stack.
 
 ## Conventions
 - [Naming](conventions/naming.md) — resource names, image tags, selectors
-- [Secrets](conventions/secrets.md) — .env.secret, secretGenerator, docker config
+- [Secrets](conventions/secrets.md) — .env.secret, secretGenerator, docker config, DB password pre-generation
 - [TLS & Certificates](conventions/tls-certificates.md) — cert-manager, issuers, extraction
 - [Resources](conventions/resources.md) — requests, limits, HPA, PDB, topology
 - [Probes](conventions/probes.md) — startup, readiness, liveness patterns

@@ -748,6 +748,11 @@ real_execute_step() {
       wait_deployment_ready "mongodb" "app.kubernetes.io/name=percona-server-mongodb-operator" "percona-server-mongodb-operator" "percona-server-mongodb-operator" || return $?
       ;;
     mongodb-instance)
+      generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_DATABASE_ADMIN_PASSWORD"
+      generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_CLUSTER_ADMIN_PASSWORD"
+      generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_CLUSTER_MONITOR_PASSWORD"
+      generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_USER_ADMIN_PASSWORD"
+      generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_BACKUP_PASSWORD"
       real_apply_component "k8s/base/mongodb/plantsuite-psmdb/" "mongodb/plantsuite-psmdb" || return $?
       real_set_status_detail "Aguardando CR plantsuite-psmdb..."
       wait_psmdb_ready "mongodb" "plantsuite-psmdb" "plantsuite-psmdb (CR)" || return $?
@@ -760,6 +765,9 @@ real_execute_step() {
       wait_deployment_ready "postgresql" "app.kubernetes.io/name=percona-postgresql-operator" "percona-postgresql-operator" "percona-postgresql-operator" || return $?
       ;;
     postgresql-instance)
+      generate_secure_password "k8s/base/postgresql/plantsuite-ppgc/.env-postgres.secret" "password"
+      generate_secure_password "k8s/base/postgresql/plantsuite-ppgc/.env-keycloak.secret" "password"
+      generate_secure_password "k8s/base/postgresql/plantsuite-ppgc/.env-vernemq.secret" "password"
       real_apply_component "k8s/base/postgresql/plantsuite-ppgc/" "postgresql/plantsuite-ppgc" || return $?
       real_set_status_detail "Aguardando CR plantsuite-ppgc..."
       wait_postgrescluster_ready "postgresql" "plantsuite-ppgc" "plantsuite-ppgc (CR)" || return $?
@@ -795,6 +803,7 @@ real_execute_step() {
       wait_deployment_ready "rabbitmq" "app.kubernetes.io/name=rabbitmq-cluster-operator" "rabbitmq-cluster-operator" "rabbitmq-cluster-operator" || return $?
       ;;
     rabbitmq-instance)
+      generate_secure_password "k8s/base/rabbitmq/plantsuite-rmq/.env.secret" "password"
       real_apply_component "k8s/base/rabbitmq/plantsuite-rmq/" "rabbitmq/plantsuite-rmq" || return $?
       real_set_status_detail "Aguardando CR plantsuite-rmq..."
       wait_rabbitmq_ready "rabbitmq" "plantsuite-rmq" "plantsuite-rmq (CR)" || return $?

@@ -8,5 +8,16 @@ configMapGenerator:
     files:
       - init.sql
 
+secretGenerator:
+  - name: plantsuite-ppgc-pguser-postgres
+    envs:
+      - .env-postgres.secret
+  - name: plantsuite-ppgc-pguser-keycloak
+    envs:
+      - .env-keycloak.secret
+  - name: plantsuite-ppgc-pguser-vernemq
+    envs:
+      - .env-vernemq.secret
+
 generatorOptions:
   disableNameSuffixHash: true
