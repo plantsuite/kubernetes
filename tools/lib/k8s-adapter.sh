@@ -145,6 +145,93 @@ real_apply_component() {
   real_apply_kustomize_path "$component_path" "$name"
 }
 
+real_migrate_redis_pod_management_policy() {
+  local namespace="redis"
+  local statefulset="plantsuite-redis"
+  local policy retention_when_deleted pvc_inventory pvc_names pvc
+
+  REAL_REDIS_POLICY_MIGRATED=false
+  policy=$(kubectl -n "$namespace" get statefulset "$statefulset" \
+    --ignore-not-found -o jsonpath='{.spec.podManagementPolicy}' 2>/dev/null) || {
+    REAL_LAST_ERROR="Não foi possível inspecionar statefulset/${statefulset} antes da migração"
+    return 51
+  }
+  if [[ -z "$policy" ]]; then
+    # Nothing to migrate on a fresh install (or after a previously failed install).
+    return 0
+  fi
+
+  [[ "$policy" == "Parallel" ]] && return 0
+  if [[ "${policy:-OrderedReady}" != "OrderedReady" ]]; then
+    REAL_LAST_ERROR="Política de pods inesperada em statefulset/${statefulset}: ${policy}"
+    return 20
+  fi
+
+  if ! retention_when_deleted=$(kubectl -n "$namespace" get statefulset "$statefulset" \
+    -o jsonpath='{.spec.persistentVolumeClaimRetentionPolicy.whenDeleted}' 2>/dev/null); then
+    REAL_LAST_ERROR="Não foi possível inspecionar a retenção de PVCs de statefulset/${statefulset}"
+    return 51
+  fi
+  if [[ "$retention_when_deleted" == "Delete" ]]; then
+    REAL_LAST_ERROR="Migração de statefulset/${statefulset} bloqueada: a política atual excluiria PVCs"
+    return 20
+  fi
+
+  if ! pvc_inventory=$(kubectl -n "$namespace" get pvc -o name 2>/dev/null); then
+    REAL_LAST_ERROR="Não foi possível inspecionar os PVCs de statefulset/${statefulset}"
+    return 51
+  fi
+
+  pvc_names=""
+  while IFS= read -r pvc; do
+    case "$pvc" in
+      "persistentvolumeclaim/data-${statefulset}-"*)
+        pvc_names+="${pvc}"$'\n'
+        ;;
+    esac
+  done <<< "$pvc_inventory"
+  if [[ -z "$pvc_names" ]]; then
+    REAL_LAST_ERROR="Migração de statefulset/${statefulset} bloqueada: nenhum PVC de dados esperado foi encontrado"
+    return 20
+  fi
+
+  # Make retention explicit, then re-read it immediately before deleting the controller.
+  # This closes the gap between the initial inspection and deletion as far as the API permits.
+  if ! kubectl -n "$namespace" patch statefulset "$statefulset" --type=merge \
+    -p '{"spec":{"persistentVolumeClaimRetentionPolicy":{"whenDeleted":"Retain"}}}' >/dev/null 2>&1; then
+    REAL_LAST_ERROR="Não foi possível garantir a retenção de PVCs de statefulset/${statefulset}"
+    return 51
+  fi
+  if ! retention_when_deleted=$(kubectl -n "$namespace" get statefulset "$statefulset" \
+    -o jsonpath='{.spec.persistentVolumeClaimRetentionPolicy.whenDeleted}' 2>/dev/null); then
+    REAL_LAST_ERROR="Não foi possível validar a retenção de PVCs de statefulset/${statefulset}"
+    return 51
+  fi
+  if [[ "$retention_when_deleted" != "Retain" ]]; then
+    REAL_LAST_ERROR="Migração de statefulset/${statefulset} bloqueada: retenção de PVCs não confirmada"
+    return 20
+  fi
+
+  real_set_status_detail "Migrando Redis para Parallel: StatefulSet e pods serão recriados; PVCs serão preservados (indisponibilidade temporária)."
+
+  # Foreground deletion removes controller-owned Pods before recreation; StatefulSet PVCs default to Retain on deletion.
+  if ! kubectl -n "$namespace" delete statefulset "$statefulset" \
+    --cascade=foreground --wait=true --timeout=300s >/dev/null 2>&1; then
+    REAL_LAST_ERROR="Falha ao remover statefulset/${statefulset} para migrar podManagementPolicy; PVCs não foram removidos"
+    return 51
+  fi
+
+  for pvc in $pvc_names; do
+    if ! kubectl -n "$namespace" get "$pvc" >/dev/null 2>&1; then
+      REAL_LAST_ERROR="PVC ${pvc} não foi preservado durante a migração de Redis"
+      return 51
+    fi
+  done
+
+  REAL_REDIS_POLICY_MIGRATED=true
+  return 0
+}
+
 real_wait_rollouts_from_path() {
   local component_path="$1"
   local namespace="$2"
@@ -777,7 +864,16 @@ real_execute_step() {
     redis)
       generate_secure_password "k8s/base/redis/.env.secret" "password"
       if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
-        real_apply_and_ensure_restart "k8s/base/redis/" "redis" "redis" "300s" || return $?
+        local _redis_path
+        _redis_path=$(real_get_component_path "k8s/base/redis/")
+        real_migrate_redis_pod_management_policy || return $?
+        if [[ "$REAL_REDIS_POLICY_MIGRATED" == "true" ]]; then
+          real_apply_kustomize_path "$_redis_path" "redis" || return $?
+          real_set_status_detail "Aguardando statefulset redis após migração..."
+          wait_statefulset_ready "redis" "app=redis" "plantsuite-redis" "redis" || return $?
+        else
+          real_apply_and_ensure_restart "$_redis_path" "redis" "redis" "300s" || return $?
+        fi
       else
         real_apply_component "k8s/base/redis/" "redis" || return $?
         real_set_status_detail "Aguardando statefulset redis..."

@@ -19,3 +19,6 @@ spec:
     #   targetPort: 9121
   type: ClusterIP
   clusterIP: None # Headless service
+  # Redis bootstrap must resolve peers before their cluster-health readiness
+  # probes pass; otherwise ordinal 0 cannot form the initial cluster.
+  publishNotReadyAddresses: true

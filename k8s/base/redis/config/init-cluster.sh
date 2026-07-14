@@ -258,29 +258,56 @@ verify_slot_coverage() {
 }
 
 # ---------------------------------------------------------------------------
-# verify_replica_assignment — for replica pods, confirm attached to expected master.
-# Field 4 of CLUSTER NODES for the "myself" line is the replication-source node ID
-# ("-" for masters, master-node-id for replicas).
+# verify_replica_assignment <ordinal> — confirm a replica is attached to its
+# deterministic master. Field 4 of CLUSTER NODES is the replication-source ID.
+# Retry because cluster create/add-node propagation can briefly report stale data.
 # ---------------------------------------------------------------------------
 verify_replica_assignment() {
-  [ "${ORDINAL}" -ge "${PRIMARIES}" ] || return 0  # not a replica — nothing to do
-  _mord=$(( ORDINAL % PRIMARIES ))
+  _rord="${1:-${ORDINAL}}"
+  [ "${_rord}" -ge "${PRIMARIES}" ] || return 0  # not a replica — nothing to do
+  _rfqdn=$(node_fqdn "${_rord}")
+  _mord=$(( _rord % PRIMARIES ))
   _mfqdn=$(node_fqdn "${_mord}")
-  _expected_id=$(redis-cli -h "${_mfqdn}" -p 6379 cluster myid 2>/dev/null | tr -d '[:space:]')
-  if [ -z "${_expected_id}" ]; then
-    echo "[init-cluster] WARN: Cannot get node ID from ${_mfqdn} — skipping verify_replica_assignment."
-    return 0
-  fi
-  _actual_id=$(redis-cli -h localhost -p 6379 cluster nodes 2>/dev/null \
-    | grep ' myself' | awk '{print $4}')
-  echo "[init-cluster] verify_replica_assignment: expected=${_expected_id} actual=${_actual_id}"
-  if [ "${_actual_id}" != "${_expected_id}" ]; then
-    echo "[init-cluster] Replica mis-assigned — replicating to ${_mfqdn} (${_expected_id})..."
-    redis-cli -h localhost -p 6379 cluster replicate "${_expected_id}" || true
-    sleep 3
-  else
-    echo "[init-cluster] Replica assignment correct."
-  fi
+  echo "[init-cluster] Verifying replica ordinal ${_rord} against master ordinal ${_mord} (up to 60 s)..."
+  _i=0
+  while [ "${_i}" -lt 30 ]; do
+    _expected_id=$(redis-cli -h "${_mfqdn}" -p 6379 cluster myid 2>/dev/null | tr -d '[:space:]')
+    _actual_id=$(redis-cli -h "${_rfqdn}" -p 6379 cluster nodes 2>/dev/null \
+      | grep ' myself' | awk '{print $4}')
+    echo "[init-cluster] replica-${_rord} assignment: expected=${_expected_id} actual=${_actual_id} (attempt $(( _i + 1 ))/30)"
+    if [ -n "${_expected_id}" ] && [ "${_actual_id}" = "${_expected_id}" ]; then
+      echo "[init-cluster] Replica ordinal ${_rord} assignment correct."
+      return 0
+    fi
+    if [ -n "${_expected_id}" ]; then
+      echo "[init-cluster] Reassigning replica ordinal ${_rord} to ${_mfqdn} (${_expected_id})..."
+      if ! redis-cli -h "${_rfqdn}" -p 6379 cluster replicate "${_expected_id}"; then
+        echo "[init-cluster] WARN: CLUSTER REPLICATE failed for replica ordinal ${_rord}; retrying."
+      fi
+    else
+      echo "[init-cluster] WARN: Cannot get node ID from ${_mfqdn}; retrying."
+    fi
+    _i=$(( _i + 1 ))
+    sleep 2
+  done
+  echo "[init-cluster] ERROR: Replica ordinal ${_rord} did not attach to master ordinal ${_mord} within 60 s."
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# verify_replica_topology — enforce the intended replica mapping from ordinal-0.
+# This makes bootstrap success dependent on all replica placements, not merely
+# cluster_state/slot health.
+# ---------------------------------------------------------------------------
+verify_replica_topology() {
+  [ "${REPLICA_COUNT}" -gt 0 ] || return 0
+  echo "[init-cluster] Verifying deterministic replica topology..."
+  _replica_ordinal=${PRIMARIES}
+  while [ "${_replica_ordinal}" -lt "${REPLICAS}" ]; do
+    verify_replica_assignment "${_replica_ordinal}" || return 1
+    _replica_ordinal=$(( _replica_ordinal + 1 ))
+  done
+  echo "[init-cluster] Replica topology verification complete."
 }
 
 # ---------------------------------------------------------------------------
@@ -405,11 +432,14 @@ bootstrap_cluster() {
 }
 
 # ---------------------------------------------------------------------------
-# _member_exit — common confirmed-member exit path (best-effort verify + clean)
+# _member_exit — common confirmed-member exit path
 # ---------------------------------------------------------------------------
 _member_exit() {
   echo "[init-cluster] Node is a confirmed cluster member."
-  verify_replica_assignment || true
+  verify_replica_assignment
+  if [ "${ORDINAL}" = "0" ]; then
+    verify_replica_topology
+  fi
   verify_slot_coverage      || true
   cleanup_stale_nodes       || true
   echo "[init-cluster] Validation complete — exiting 0."
@@ -427,7 +457,7 @@ _join_and_exit() {
     join_as_primary
   fi
   sleep 3
-  verify_replica_assignment || true
+  verify_replica_assignment
   verify_slot_coverage      || true
   cleanup_stale_nodes       || true
   echo "[init-cluster] Join complete — exiting 0."
@@ -496,6 +526,7 @@ case "${CLUSTER_STATE}" in
       if [ "${ORDINAL}" = "0" ]; then
         echo "[init-cluster] Ordinal 0 — bootstrapping cluster..."
         bootstrap_cluster
+        verify_replica_topology
         cleanup_stale_nodes  || true
         verify_slot_coverage || true
         echo "[init-cluster] Bootstrap complete — exiting 0."

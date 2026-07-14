@@ -5,6 +5,7 @@ metadata:
 spec:
   serviceName: redis-nodes
   replicas: 6
+  podManagementPolicy: Parallel
   template:
     spec:
       serviceAccountName: redis
@@ -205,10 +206,28 @@ spec:
                 - -c
                 - |
                   . /shared/replicas.env 2>/dev/null || REPLICAS=6
-                  redis-cli cluster info | grep -q 'cluster_state:ok' && \
-                  redis-cli cluster nodes | grep -q 'myself.*master\|myself.*slave' && \
-                  MASTERS=$(redis-cli cluster info | grep -oP 'cluster_size:\K[0-9]+' 2>/dev/null || echo 3)
-                  [ "${REPLICAS:-6}" -eq 1 ] && [ "${MASTERS:-0}" -ge 1 ] || [ "${MASTERS:-0}" -ge 2 ]
+                  if [ "${REPLICAS:-6}" -eq 1 ]; then
+                    redis-cli ping >/dev/null && \
+                    redis-cli info server | grep -q 'redis_mode:standalone'
+                  else
+                    CLUSTER_INFO=$(redis-cli cluster info) || exit 1
+                    PRIMARIES=$(( (${REPLICAS:-6} + 1) / 2 ))
+                    ORDINAL=$(echo "${HOSTNAME}" | rev | cut -d'-' -f1 | rev)
+                    printf '%s\n' "${CLUSTER_INFO}" | grep -q 'cluster_state:ok' && \
+                    CLUSTER_NODES=$(redis-cli cluster nodes) && \
+                    CLUSTER_SIZE=$(printf '%s\n' "${CLUSTER_INFO}" | grep -o 'cluster_size:[0-9][0-9]*' | cut -d: -f2 | head -n1) && \
+                    [ -n "${CLUSTER_SIZE}" ] && [ "${CLUSTER_SIZE}" -eq "${PRIMARIES}" ] && \
+                    printf '%s\n' "${CLUSTER_NODES}" | grep -q 'myself.*master\|myself.*slave' && \
+                    if [ "${ORDINAL}" -lt "${PRIMARIES}" ]; then
+                      printf '%s\n' "${CLUSTER_NODES}" | grep -q 'myself.*master'
+                    else
+                      MASTER_ORDINAL=$(( ORDINAL % PRIMARIES ))
+                      SERVICENAME=$(echo "${HOSTNAME}" | rev | cut -d'-' -f2- | rev)
+                      EXPECTED_MASTER_ID=$(redis-cli -h "${SERVICENAME}-${MASTER_ORDINAL}.${SERVICENAME}-nodes.${NAMESPACE}.svc.cluster.local" -p 6379 cluster myid 2>/dev/null | tr -d '[:space:]')
+                      ACTUAL_MASTER_ID=$(printf '%s\n' "${CLUSTER_NODES}" | grep ' myself' | awk '{print $4}')
+                      [ -n "${EXPECTED_MASTER_ID}" ] && [ "${ACTUAL_MASTER_ID}" = "${EXPECTED_MASTER_ID}" ]
+                    fi
+                  fi
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 5
