@@ -9,6 +9,8 @@ TUI_COLS=80
 TUI_LINES=24
 TUI_RESIZE=0
 TUI_PLAIN=0          # 1 = fallback menu numerado
+TUI_KEY_HANDLER=""  # hook opcional para atalhos específicos de uma tela
+TUI_FOOTER_HINT=""  # legenda opcional de atalhos da tela atual
 
 # Tamanho mínimo do terminal para a TUI (evita distorção de layout)
 TUI_MIN_COLS=160
@@ -424,7 +426,7 @@ draw_header() {
 
 draw_footer() {
     local msg="${1:-}"
-    local hint="  ↑↓ navegar   enter selecionar   q sair  "
+    local hint="${TUI_FOOTER_HINT:-  ↑↓ navegar   enter selecionar   q sair  }"
     _tui_move_cursor "$((TUI_LINES - 1))" 0
     _tui_clear_eol
     colorize_hint "$(trunc "$hint" $((TUI_COLS / 2)))"
@@ -556,7 +558,11 @@ run_plain_menu() {
     echo ""
     local choice
     while true; do
-        read -rp "Digite o número do contexto: " choice
+        read -rp "Digite o número do contexto (R=limpar secrets locais): " choice
+        if [[ "$choice" =~ ^[rR]$ ]] && [[ -n "${TUI_KEY_HANDLER:-}" ]] && declare -F "$TUI_KEY_HANDLER" >/dev/null 2>&1; then
+            "$TUI_KEY_HANDLER" "r"
+            continue
+        fi
         if [[ "$choice" =~ ^[qQ]$ ]]; then
             if [[ -n "${RESULT_FILE:-}" ]]; then
                 echo "__QUIT__" > "$RESULT_FILE"
@@ -655,6 +661,9 @@ run_plain_menu_generic() {
         _tui_move_cursor 0 0
 
         local key; key=$(read_key) || continue
+        if [[ -n "${TUI_KEY_HANDLER:-}" ]] && declare -F "$TUI_KEY_HANDLER" >/dev/null 2>&1; then
+            "$TUI_KEY_HANDLER" "$key" && continue
+        fi
         case "$key" in
             RESIZE)
                 tui_on_resize
@@ -749,6 +758,9 @@ input_flush
         _tui_move_cursor 0 0
 
         local key; key=$(read_key) || continue
+        if [[ -n "${TUI_KEY_HANDLER:-}" ]] && declare -F "$TUI_KEY_HANDLER" >/dev/null 2>&1; then
+            "$TUI_KEY_HANDLER" "$key" && continue
+        fi
         case "$key" in
             RESIZE)
                 tui_on_resize

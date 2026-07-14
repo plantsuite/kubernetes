@@ -36,6 +36,7 @@ set_env_value() {
   local file="$1"
   local key="$2"
   local value="$3"
+  local status
 
   [ -f "$file" ] || touch "$file"
   export _AWK_KEY="$key" _AWK_VALUE="$value"
@@ -44,8 +45,10 @@ set_env_value() {
      $0 ~ ("^"key"=") {print key"="value; updated=1; next}
      {print}
      END{if(updated==0){print key"="value}}' \
-    "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+    "$file" > "$file.tmp" && chmod 0600 "$file.tmp" && mv "$file.tmp" "$file"
+  status=$?
   unset _AWK_KEY _AWK_VALUE
+  return "$status"
 }
 
 # Lê uma chave de arquivo .env (retorna vazio se não existir)
@@ -65,6 +68,11 @@ get_k8s_secret_value() {
   local data_key="$3"
   kubectl get secret "$secret_name" -n "$namespace" -o jsonpath="{.data.${data_key}}" 2>/dev/null | base64 -d | tr -d '\r'
 }
+
+_MONGO_CONN_FMT='mongodb://%s@plantsuite-psmdb-rs0.mongodb.svc.cluster.local:27017/?authSource=admin&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=true&w=majority'
+_REDIS_CONN_FMT='plantsuite-redis.redis.svc.cluster.local,password=%s'
+_PG_CONN_FMT='Host=plantsuite-ppgc-pgbouncer.postgresql.svc.cluster.local;Port=5432;Database=vernemq;Username=vernemq;Password=%s;Minimum Pool Size=10;Maximum Pool Size=10'
+_RMQ_CONN_FMT='amqp://%s@plantsuite-rmq.rabbitmq.svc.cluster.local:5672/'
 
 sanitize_env_file() {
   local file="$1"
@@ -308,18 +316,14 @@ update_plantsuite_env() {
 
   local mongo_conn
 
-  if [ -n "$existing_mongo_conn" ]; then
-    if echo "$existing_mongo_conn" | grep -q "mongodb://"; then
-      if echo "$existing_mongo_conn" | grep -q "@"; then
-        mongo_conn=$(echo "$existing_mongo_conn" | sed "s|mongodb://[^@]*@|mongodb://${mongo_user}:${mongo_pass}@|")
-      else
-        mongo_conn=$(echo "$existing_mongo_conn" | sed "s|mongodb://|mongodb://${mongo_user}:${mongo_pass}@|")
-      fi
+  if [ -n "$existing_mongo_conn" ] && echo "$existing_mongo_conn" | grep -q "mongodb://"; then
+    if echo "$existing_mongo_conn" | grep -q "@"; then
+      mongo_conn=$(echo "$existing_mongo_conn" | sed "s|mongodb://[^@]*@|mongodb://${mongo_user}:${mongo_pass}@|")
     else
-      mongo_conn="mongodb://${mongo_user}:${mongo_pass}@plantsuite-psmdb-rs0.mongodb.svc.cluster.local:27017/?authSource=admin&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=true&w=majority"
+      mongo_conn=$(echo "$existing_mongo_conn" | sed "s|mongodb://|mongodb://${mongo_user}:${mongo_pass}@|")
     fi
   else
-    mongo_conn="mongodb://${mongo_user}:${mongo_pass}@plantsuite-psmdb-rs0.mongodb.svc.cluster.local:27017/?authSource=admin&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=true&w=majority"
+    printf -v mongo_conn "$_MONGO_CONN_FMT" "${mongo_user}:${mongo_pass}"
   fi
   set_env_value "$env_file" "Database__MongoDb__ConnectionString" "$mongo_conn"
 
@@ -344,7 +348,7 @@ update_plantsuite_env() {
       redis_conn="${existing_redis_conn},password=${redis_pass}"
     fi
   else
-    redis_conn="plantsuite-redis.redis.svc.cluster.local,password=${redis_pass}"
+    printf -v redis_conn "$_REDIS_CONN_FMT" "$redis_pass"
   fi
   set_env_value "$env_file" "Database__Redis__ConnectionString" "$redis_conn"
 
@@ -375,7 +379,7 @@ update_plantsuite_env() {
       pg_conn="${existing_pg_conn};Password='${pg_pass_quoted}'"
     fi
   else
-    pg_conn="Host=plantsuite-ppgc-pgbouncer.postgresql.svc.cluster.local;Port=5432;Database=vernemq;Username=vernemq;Password='${pg_pass_quoted}';Minimum Pool Size=10;Maximum Pool Size=10"
+    printf -v pg_conn "$_PG_CONN_FMT" "'${pg_pass_quoted}'"
   fi
   set_env_value "$env_file" "Database__Postgresql__ConnectionString" "$pg_conn"
 
@@ -399,18 +403,14 @@ update_plantsuite_env() {
 
   local rmq_conn existing_rmq_conn
   existing_rmq_conn=$(get_env_value "$env_file" "MessageBus__RabbitMQ__ConnectionString")
-  if [ -n "$existing_rmq_conn" ]; then
-    if echo "$existing_rmq_conn" | grep -q "amqp://"; then
-      if echo "$existing_rmq_conn" | grep -q "@"; then
-        rmq_conn=$(echo "$existing_rmq_conn" | sed "s|amqp://[^@]*@|amqp://${rmq_user}:${rmq_pass}@|")
-      else
-        rmq_conn=$(echo "$existing_rmq_conn" | sed "s|amqp://|amqp://${rmq_user}:${rmq_pass}@|")
-      fi
+  if [ -n "$existing_rmq_conn" ] && echo "$existing_rmq_conn" | grep -q "amqp://"; then
+    if echo "$existing_rmq_conn" | grep -q "@"; then
+      rmq_conn=$(echo "$existing_rmq_conn" | sed "s|amqp://[^@]*@|amqp://${rmq_user}:${rmq_pass}@|")
     else
-      rmq_conn="amqp://${rmq_user}:${rmq_pass}@plantsuite-rmq.rabbitmq.svc.cluster.local:5672/"
+      rmq_conn=$(echo "$existing_rmq_conn" | sed "s|amqp://|amqp://${rmq_user}:${rmq_pass}@|")
     fi
   else
-    rmq_conn="amqp://${rmq_user}:${rmq_pass}@plantsuite-rmq.rabbitmq.svc.cluster.local:5672/"
+    printf -v rmq_conn "$_RMQ_CONN_FMT" "${rmq_user}:${rmq_pass}"
   fi
 
   set_env_value "$env_file" "MessageBus__RabbitMQ__ConnectionString" "$rmq_conn"
@@ -477,6 +477,267 @@ update_gateway_env() {
   set_env_value "$gw_env_file" "LocalAuth__Username" "$localauth_user"
 
   klog "Arquivo atualizado: $gw_env_file"
+}
+
+secret_data_exists() {
+  local namespace="$1"
+  local secret_name="$2"
+  local data_key="$3"
+  local raw
+  raw=$(kubectl get secret "$secret_name" -n "$namespace" -o jsonpath="{.data.${data_key}}" 2>/dev/null)
+  [ -n "$raw" ]
+}
+
+_HYDRATE_CTX=""
+
+hydrate_kv() {
+  local ns="$1" secret="$2" key="$3" file="$4" out_key="${5:-$key}"
+  if ! secret_data_exists "$ns" "$secret" "$key"; then
+    error "Hidratacao ${_HYDRATE_CTX} bloqueada: chave ${key} ausente em ${ns}/${secret} (RBAC, Secret ou valor)."
+    return 1
+  fi
+  local val
+  val=$(get_k8s_secret_value "$ns" "$secret" "$key")
+  if [ -z "$val" ]; then
+    error "Hidratacao ${_HYDRATE_CTX} bloqueada: ${key} vazio em ${ns}/${secret}."
+    return 1
+  fi
+  set_env_value "$file" "$out_key" "$val"
+}
+
+hydrate_mongodb_secrets_update() {
+  local file="k8s/base/mongodb/plantsuite-psmdb/.env.secret"
+  local ns="mongodb"
+  local secret="plantsuite-psmdb-secrets"
+  local role
+  _HYDRATE_CTX="mongodb"
+  for role in DATABASE_ADMIN CLUSTER_ADMIN CLUSTER_MONITOR USER_ADMIN BACKUP; do
+    hydrate_kv "$ns" "$secret" "MONGODB_${role}_USER" "$file" || return $?
+    hydrate_kv "$ns" "$secret" "MONGODB_${role}_PASSWORD" "$file" || return $?
+  done
+  klog "Hidratado: $file (a partir de ${ns}/${secret})"
+}
+
+hydrate_postgresql_secrets_update() {
+  local dir="k8s/base/postgresql/plantsuite-ppgc"
+  local ns="postgresql"
+  local user env_file
+  _HYDRATE_CTX="postgresql"
+  for user in postgres keycloak vernemq; do
+    env_file="${dir}/.env-${user}.secret"
+    hydrate_kv "$ns" "plantsuite-ppgc-pguser-${user}" "password" "$env_file" || return $?
+  done
+  klog "Hidratado: ${dir}/.env-{postgres,keycloak,vernemq}.secret (a partir de ${ns})"
+}
+
+hydrate_redis_secrets_update() {
+  local file="k8s/base/redis/.env.secret"
+  local ns="redis"
+  local secret="plantsuite-redis-env"
+  _HYDRATE_CTX="redis"
+  hydrate_kv "$ns" "$secret" "password" "$file" || return $?
+  klog "Hidratado: $file (a partir de ${ns}/${secret})"
+}
+
+hydrate_rabbitmq_secrets_update() {
+  local file="k8s/base/rabbitmq/plantsuite-rmq/.env.secret"
+  local ns="rabbitmq"
+  local secret="plantsuite-rmq-default-user"
+  _HYDRATE_CTX="rabbitmq"
+  hydrate_kv "$ns" "$secret" "username" "$file" || return $?
+  hydrate_kv "$ns" "$secret" "password" "$file" || return $?
+  klog "Hidratado: $file (a partir de ${ns}/${secret})"
+}
+
+hydrate_keycloak_secrets_update() {
+  local file="k8s/base/keycloak/plantsuite-kc/.env.secret"
+  local ns="keycloak"
+  local secret="keycloak"
+  _HYDRATE_CTX="keycloak"
+  hydrate_kv "$ns" "$secret" "db_username" "$file" || return $?
+  hydrate_kv "$ns" "$secret" "db_password" "$file" || return $?
+  hydrate_kv "$ns" "$secret" "client-secret_ps-auth-introspection" "$file" || return $?
+  hydrate_kv "$ns" "$secret" "client-secret_ps-tenants-admin" "$file" || return $?
+  klog "Hidratado: $file (a partir de ${ns}/${secret})"
+}
+
+hydrate_vernemq_secrets_update() {
+  local file="k8s/base/vernemq/.env.secret"
+  local ns="postgresql"
+  local secret="plantsuite-ppgc-pguser-vernemq"
+  _HYDRATE_CTX="vernemq"
+  hydrate_kv "$ns" "$secret" "password" "$file" "DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__PASSWORD" || return $?
+  klog "Hidratado: $file (a partir de ${ns}/${secret})"
+}
+
+hydrate_plantsuite_deps_update() {
+  hydrate_mongodb_secrets_update || return $?
+  hydrate_postgresql_secrets_update || return $?
+  hydrate_redis_secrets_update || return $?
+  hydrate_rabbitmq_secrets_update || return $?
+  hydrate_keycloak_secrets_update || return $?
+  hydrate_vernemq_secrets_update || return $?
+  return 0
+}
+
+hydrate_gateway_secrets_update() {
+  local gw_env_file="k8s/base/plantsuite/gateway/appsettings.env"
+  local ns="plantsuite"
+  local secret="plantsuite-gateway-env"
+  local pass_val
+
+  if ! secret_data_exists "$ns" "$secret" "LocalAuth__Password"; then
+    error "Hidratacao gateway bloqueada: chave LocalAuth__Password ausente em ${ns}/${secret} (RBAC, Secret ou valor)."
+    return 1
+  fi
+  pass_val=$(get_k8s_secret_value "$ns" "$secret" "LocalAuth__Password")
+  if [ -z "$pass_val" ]; then
+    error "Hidratacao gateway bloqueada: LocalAuth__Password vazio em ${ns}/${secret}."
+    return 1
+  fi
+  set_env_value "$gw_env_file" "LocalAuth__Password" "$pass_val"
+  klog "Hidratado: $gw_env_file (a partir de ${ns}/${secret})"
+}
+
+hydrate_plantsuite_env_file_update() {
+  local file="k8s/base/plantsuite/.env.secret"
+  local ns="plantsuite"
+  local secret="plantsuite-env"
+  local key val
+
+  for key in Database__MongoDb__ConnectionString Database__Redis__ConnectionString Database__Postgresql__ConnectionString MessageBus__RabbitMQ__ConnectionString MessageBus__RabbitMQ__User MessageBus__RabbitMQ__Password MessageBus__MQTT__Password Keycloak__AdminClientSecret Keycloak__IntrospectionClientSecret SMTP__Password; do
+    if ! secret_data_exists "$ns" "$secret" "$key"; then
+      error "Hidratacao plantsuite bloqueada: chave ${key} ausente em ${ns}/${secret} (RBAC, Secret ou valor)."
+      return 1
+    fi
+    val=$(get_k8s_secret_value "$ns" "$secret" "$key")
+    if [ -z "$val" ]; then
+      error "Hidratacao plantsuite bloqueada: valor vazio para ${key} em ${ns}/${secret}."
+      return 1
+    fi
+    set_env_value "$file" "$key" "$val"
+  done
+  klog "Hidratado: $file (a partir de ${ns}/${secret})"
+}
+
+hydrate_secrets_for_update() {
+  local step_id="$1"
+  case "$step_id" in
+    mongodb-instance)
+      hydrate_mongodb_secrets_update || return $?
+      ;;
+    postgresql-instance)
+      hydrate_postgresql_secrets_update || return $?
+      ;;
+    redis)
+      hydrate_redis_secrets_update || return $?
+      ;;
+    rabbitmq-instance)
+      hydrate_rabbitmq_secrets_update || return $?
+      ;;
+    keycloak-instance)
+      hydrate_keycloak_secrets_update || return $?
+      ;;
+    vernemq)
+      hydrate_vernemq_secrets_update || return $?
+      ;;
+    plantsuite-base)
+      hydrate_plantsuite_deps_update || return $?
+      hydrate_plantsuite_env_file_update || return $?
+      hydrate_gateway_secrets_update || return $?
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+  return 0
+}
+
+reset_mongodb_env_file() {
+  local file="k8s/base/mongodb/plantsuite-psmdb/.env.secret"
+  [ -f "$file" ] || return 0
+  local status=0
+  set_env_value "$file" "MONGODB_DATABASE_ADMIN_PASSWORD" "" || status=1
+  set_env_value "$file" "MONGODB_CLUSTER_ADMIN_PASSWORD" "" || status=1
+  set_env_value "$file" "MONGODB_CLUSTER_MONITOR_PASSWORD" "" || status=1
+  set_env_value "$file" "MONGODB_USER_ADMIN_PASSWORD" "" || status=1
+  set_env_value "$file" "MONGODB_BACKUP_PASSWORD" "" || status=1
+  return "$status"
+}
+
+reset_postgres_env_files() {
+  local dir="k8s/base/postgresql/plantsuite-ppgc"
+  local user status=0
+  for user in postgres keycloak vernemq; do
+    [ -f "${dir}/.env-${user}.secret" ] || continue
+    set_env_value "${dir}/.env-${user}.secret" "password" "" || status=1
+  done
+  return "$status"
+}
+
+reset_redis_env_file() {
+  local file="k8s/base/redis/.env.secret"
+  [ -f "$file" ] || return 0
+  set_env_value "$file" "password" ""
+}
+
+reset_rabbitmq_env_file() {
+  local file="k8s/base/rabbitmq/plantsuite-rmq/.env.secret"
+  [ -f "$file" ] || return 0
+  set_env_value "$file" "password" ""
+}
+
+reset_keycloak_env_file() {
+  local file="k8s/base/keycloak/plantsuite-kc/.env.secret"
+  [ -f "$file" ] || return 0
+  local status=0
+  set_env_value "$file" "db_password" "" || status=1
+  set_env_value "$file" "client-secret_ps-auth-introspection" "" || status=1
+  set_env_value "$file" "client-secret_ps-tenants-admin" "" || status=1
+  return "$status"
+}
+
+reset_vernemq_env_file() {
+  local file="k8s/base/vernemq/.env.secret"
+  [ -f "$file" ] || return 0
+  set_env_value "$file" "DOCKER_VERNEMQ_VMQ_DIVERSITY__POSTGRES__PASSWORD" ""
+}
+
+reset_plantsuite_env_file() {
+  local file="k8s/base/plantsuite/.env.secret"
+  [ -f "$file" ] || return 0
+  local conn status=0
+  printf -v conn "$_MONGO_CONN_FMT" ""; set_env_value "$file" "Database__MongoDb__ConnectionString" "$conn" || status=1
+  printf -v conn "$_REDIS_CONN_FMT" ""; set_env_value "$file" "Database__Redis__ConnectionString" "$conn" || status=1
+  printf -v conn "$_PG_CONN_FMT" ""; set_env_value "$file" "Database__Postgresql__ConnectionString" "$conn" || status=1
+  printf -v conn "$_RMQ_CONN_FMT" ""; set_env_value "$file" "MessageBus__RabbitMQ__ConnectionString" "$conn" || status=1
+  set_env_value "$file" "MessageBus__RabbitMQ__User" "" || status=1
+  set_env_value "$file" "MessageBus__RabbitMQ__Password" "" || status=1
+  set_env_value "$file" "MessageBus__MQTT__Password" "" || status=1
+  set_env_value "$file" "Keycloak__AdminClientSecret" "" || status=1
+  set_env_value "$file" "Keycloak__IntrospectionClientSecret" "" || status=1
+  set_env_value "$file" "SMTP__Password" "" || status=1
+  return "$status"
+}
+
+reset_gateway_env_file() {
+  local file="k8s/base/plantsuite/gateway/appsettings.env"
+  [ -f "$file" ] || return 0
+  set_env_value "$file" "LocalAuth__Password" ""
+}
+
+reset_managed_secrets_files() {
+  local status=0
+  reset_mongodb_env_file || status=1
+  reset_postgres_env_files || status=1
+  reset_redis_env_file || status=1
+  reset_rabbitmq_env_file || status=1
+  reset_keycloak_env_file || status=1
+  reset_vernemq_env_file || status=1
+  reset_plantsuite_env_file || status=1
+  reset_gateway_env_file || status=1
+  klog "Secrets locais restaurados aos placeholders versionados."
+  return "$status"
 }
 
 # TODO TEMPORÁRIO (MES): Extrai o tenantId do certificado de licença.

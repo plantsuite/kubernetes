@@ -50,6 +50,7 @@ _TMPFILE=$(mktemp)
 trap 'rm -f "$_TMPFILE"' EXIT
 
 # Telas de seleção.
+source "$REAL_DIR/secrets.sh"
 source "$REAL_DIR/screen-context.sh"
 source "$REAL_DIR/screen-overlay.sh"
 source "$REAL_DIR/screen-services.sh"
@@ -233,6 +234,9 @@ while true; do
           printf '\n[ERRO] Instalação finalizada com erro.\n\n' >&2
         fi
         exit 1
+      fi
+      if declare -F reset_managed_secrets_files >/dev/null 2>&1; then
+        reset_managed_secrets_files
       fi
       break
       ;;

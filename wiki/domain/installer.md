@@ -50,6 +50,23 @@ kubectl kustomize --enable-helm <path> | kubectl apply --server-side --force-con
 - Functions: set_env_value, get_env_value, get_k8s_secret_value
 - Idempotent
 
+### Managed Secret Lifecycle
+- After a successful execution, restore locally only the keys managed by the installer.
+- During an update, hydrate managed values from cluster Secrets before any apply. If a required Secret, RBAC permission, or key is missing, block that component; do not silently fall back to the local file.
+- On failure or cancellation, preserve the current state so the operation can be retried.
+
+### Manual Secret Reset
+- From the initial context-selection screen, press `r` to clear the installer-managed local secret files.
+- The installer requires confirmation with `S` (case-insensitive); any other key cancels the operation. The reset changes only local files and does not modify cluster Secrets.
+- The automatic reset after a successful installation or update remains enabled.
+
+### Interrupted Installation Resume
+- Install runs persist versioned status, selected overlay/services, optional-infrastructure choices, completed phase IDs, active phase, and diagnostics in `ConfigMap/plantsuite-installer-state` in `kube-system`.
+- On the same cluster, an incomplete install is offered for resume only when the saved overlay is selected. Completed phases are skipped; the failed/active phase is reconciled again idempotently.
+- A successful install marks the persisted state `complete`; cancellation and failure retain resumable context.
+- A missing state ConfigMap means no pending install. Invalid state or any state read/write failure stops the install rather than continuing without trustworthy resume data.
+- Persisted diagnostic strings are single-line printable text capped at 1,024 characters.
+
 ## Update & Delete Pipelines (tools/lib/pipeline.sh)
 
 - `build_update_pipeline()` — orchestrates a mixed update: deletes selected services/infra in reverse order, then applies updated infra and services.
