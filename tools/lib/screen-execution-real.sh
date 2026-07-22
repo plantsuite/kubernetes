@@ -365,6 +365,18 @@ draw_real_result_screen() {
 
 # Salvar/recuperar cache em arquivo compartilhado entre processos
 
+real_persist_resume_state() {
+  if "$@"; then
+    return 0
+  fi
+  REAL_LAST_ERROR="Não foi possível persistir o estado da instalação para retomada segura"
+  REAL_EXEC_ERROR="$REAL_LAST_ERROR"
+  return 1
+}
+
+real_record_prereq_failure() {
+  [[ "${UPDATE_MODE:-false}" == "true" ]] || real_persist_resume_state resume_state_mark_prereq_failed "$REAL_LAST_ERROR" "${REAL_LAST_DETAIL:-}"
+}
 
 run_screen_execution_real() {
   if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
@@ -375,6 +387,12 @@ run_screen_execution_real() {
     build_real_pipeline
   fi
   HEADER_CTX="contexto: ${SELECTED_CONTEXT:-} | overlay: ${SELECTED_OVERLAY:-}"
+
+  if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_start; then
+    REAL_LAST_ERROR="Não foi possível persistir o estado da instalação para retomada segura"
+    [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
+    return
+  fi
 
   local i
   REAL_STEP_STATUS=()
@@ -394,23 +412,50 @@ run_screen_execution_real() {
     echo "Contexto/Overlay: $HEADER_CTX"
 
     if ! real_assert_prereqs; then
+      if ! real_record_prereq_failure; then
+        echo "[ERRO] $REAL_LAST_ERROR"
+        [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
+        return
+      fi
       echo "[ERRO] $REAL_LAST_ERROR"
       [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
       return
     fi
 
     for ((i=0; i<REAL_STEP_COUNT; i++)); do
+      if [[ "${UPDATE_MODE:-false}" != "true" ]] && resume_state_step_completed "${REAL_STEP_IDS[$i]}"; then
+        echo "[OK] ${REAL_STEP_LABELS[$i]} (retomada)"
+        continue
+      fi
       echo "[>] ${REAL_STEP_LABELS[$i]}"
+      if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_step_running "${REAL_STEP_IDS[$i]}"; then
+        REAL_LAST_ERROR="Não foi possível persistir o estado da instalação para retomada segura"
+        echo "failed" > "$RESULT_FILE"
+        return
+      fi
       if ! real_execute_step "${REAL_STEP_IDS[$i]}"; then
+        if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_failed failed "$REAL_LAST_ERROR" "${REAL_LAST_DETAIL:-}"; then
+          echo "[ERRO] $REAL_LAST_ERROR"
+        fi
         echo "[ERRO] ${REAL_STEP_LABELS[$i]}"
         echo "$REAL_LAST_ERROR"
         [[ -n "${REAL_LAST_DETAIL:-}" ]] && echo "Detalhe: $REAL_LAST_DETAIL"
         [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
         return
       fi
+      if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_step_complete "${REAL_STEP_IDS[$i]}"; then
+        echo "[ERRO] $REAL_LAST_ERROR"
+        [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
+        return
+      fi
       echo "[OK] ${REAL_STEP_LABELS[$i]}"
     done
 
+    if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_complete; then
+      echo "[ERRO] $REAL_LAST_ERROR"
+      [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
+      return
+    fi
     [[ -n "${RESULT_FILE:-}" ]] && echo "success" > "$RESULT_FILE" || echo "success"
     return
   fi
@@ -427,22 +472,49 @@ run_screen_execution_real() {
     echo "Contexto/Overlay: $HEADER_CTX"
 
     if ! real_assert_prereqs; then
+      if ! real_record_prereq_failure; then
+        echo "[ERRO] $REAL_LAST_ERROR"
+        [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
+        return
+      fi
       echo "[ERRO] $REAL_LAST_ERROR"
       [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
       return
     fi
 
     for ((i=0; i<REAL_STEP_COUNT; i++)); do
+      if [[ "${UPDATE_MODE:-false}" != "true" ]] && resume_state_step_completed "${REAL_STEP_IDS[$i]}"; then
+        echo "[OK] ${REAL_STEP_LABELS[$i]} (retomada)"
+        continue
+      fi
       echo "[>] ${REAL_STEP_LABELS[$i]}"
+      if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_step_running "${REAL_STEP_IDS[$i]}"; then
+        REAL_LAST_ERROR="Não foi possível persistir o estado da instalação para retomada segura"
+        echo "failed" > "$RESULT_FILE"
+        return
+      fi
       if ! real_execute_step "${REAL_STEP_IDS[$i]}"; then
+        if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_failed failed "$REAL_LAST_ERROR" "${REAL_LAST_DETAIL:-}"; then
+          echo "[ERRO] $REAL_LAST_ERROR"
+        fi
         echo "[ERRO] ${REAL_STEP_LABELS[$i]}"
         echo "$REAL_LAST_ERROR"
+        [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
+        return
+      fi
+      if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_step_complete "${REAL_STEP_IDS[$i]}"; then
+        echo "[ERRO] $REAL_LAST_ERROR"
         [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
         return
       fi
       echo "[OK] ${REAL_STEP_LABELS[$i]}"
     done
 
+    if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_complete; then
+      echo "[ERRO] $REAL_LAST_ERROR"
+      [[ -n "${RESULT_FILE:-}" ]] && echo "failed" > "$RESULT_FILE" || echo "failed"
+      return
+    fi
     [[ -n "${RESULT_FILE:-}" ]] && echo "success" > "$RESULT_FILE" || echo "success"
     return
   fi
@@ -459,20 +531,37 @@ run_screen_execution_real() {
   trap 'rm -f "$REAL_LAST_LOG_LINE_CACHE_FILE" "$REAL_STATUS_DETAIL_CACHE_FILE"' RETURN
 
   if ! real_assert_prereqs; then
-    REAL_EXEC_RESULT="failed"
-    REAL_EXEC_ERROR="$REAL_LAST_ERROR"
+    if ! real_record_prereq_failure; then
+      REAL_EXEC_RESULT="failed"
+      REAL_EXEC_ERROR="$REAL_LAST_ERROR"
+    else
+      REAL_EXEC_RESULT="failed"
+      REAL_EXEC_ERROR="$REAL_LAST_ERROR"
+    fi
   else
     local completed=0
     REAL_TOTAL_STEPS="$REAL_STEP_COUNT"
     REAL_TUI_RUNNING=1
     REAL_STATUS_HOOK="real_execution_status_hook"
     for ((i=0; i<REAL_STEP_COUNT; i++)); do
+      if [[ "${UPDATE_MODE:-false}" != "true" ]] && resume_state_step_completed "${REAL_STEP_IDS[$i]}"; then
+        REAL_STEP_STATUS[$i]="success"
+        completed=$((completed + 1))
+        continue
+      fi
       REAL_STEP_STATUS[$i]="running"
       REAL_CURRENT_STEP_INDEX="$i"
       REAL_COMPLETED_STEPS="$completed"
       REAL_CURRENT_DETAIL="Iniciando ${REAL_STEP_LABELS[$i]}..."
       draw_real_execution_screen "$completed" "$i" "$REAL_CURRENT_DETAIL"
       start_real_activity_spinner
+
+        if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_step_running "${REAL_STEP_IDS[$i]}"; then
+          stop_real_activity_spinner
+          REAL_EXEC_RESULT="failed"
+          REAL_EXEC_ERROR="Não foi possível persistir o estado da instalação para retomada segura"
+          break
+        fi
 
         if ! real_execute_step "${REAL_STEP_IDS[$i]}" >>"$REAL_EXEC_LOG_FILE" 2>&1; then
         stop_real_activity_spinner
@@ -481,6 +570,10 @@ run_screen_execution_real() {
         REAL_STEP_STATUS[$i]="failed"
         REAL_EXEC_RESULT="failed"
         REAL_EXEC_ERROR="${REAL_LAST_ERROR:-${REAL_LAST_DETAIL:-Falha na etapa ${REAL_STEP_LABELS[$i]}}}"
+        if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_failed failed "$REAL_EXEC_ERROR" "${REAL_LAST_DETAIL:-}"; then
+          REAL_STEP_STATUS[$i]="failed"
+          break
+        fi
         input_flush
         local failure_detail="${REAL_LAST_DETAIL:-$REAL_LAST_ERROR}"
         while true; do
@@ -499,12 +592,25 @@ run_screen_execution_real() {
               REAL_COMPLETED_STEPS="$completed"
               REAL_CURRENT_DETAIL="Reexecutando ${REAL_STEP_LABELS[$i]}..."
               start_real_activity_spinner
+              if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_step_running "${REAL_STEP_IDS[$i]}"; then
+                stop_real_activity_spinner
+                REAL_TUI_RUNNING=0
+                REAL_STATUS_HOOK=""
+                REAL_STEP_STATUS[$i]="failed"
+                REAL_EXEC_ERROR="Não foi possível persistir o estado da instalação para retomada segura"
+                failure_detail="$REAL_EXEC_ERROR"
+                continue
+              fi
                 if real_execute_step "${REAL_STEP_IDS[$i]}" >>"$REAL_EXEC_LOG_FILE" 2>&1; then
                 stop_real_activity_spinner
                 REAL_TUI_RUNNING=0
                 REAL_STATUS_HOOK=""
                 REAL_STEP_STATUS[$i]="success"
                 completed=$((completed + 1))
+                if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_step_complete "${REAL_STEP_IDS[$i]}"; then
+                  REAL_STEP_STATUS[$i]="failed"
+                  break 2
+                fi
                 break
               fi
               stop_real_activity_spinner
@@ -513,10 +619,19 @@ run_screen_execution_real() {
               REAL_STEP_STATUS[$i]="failed"
               REAL_EXEC_ERROR="${REAL_LAST_ERROR:-${REAL_LAST_DETAIL:-Falha na etapa ${REAL_STEP_LABELS[$i]}}}"
               failure_detail="${REAL_LAST_DETAIL:-$REAL_LAST_ERROR}"
+              if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_failed failed "$REAL_EXEC_ERROR" "$failure_detail"; then
+                failure_detail="$REAL_LAST_ERROR"
+                REAL_EXEC_RESULT="failed"
+                REAL_EXEC_ERROR="$REAL_LAST_ERROR"
+                break 2
+              fi
               ;;
             c|C)
               REAL_STEP_STATUS[$i]="canceled"
               REAL_EXEC_RESULT="canceled"
+              if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_failed canceled "Instalação cancelada pelo usuário" "$failure_detail"; then
+                REAL_EXEC_RESULT="failed"
+              fi
               stop_real_activity_spinner
               break 2
               ;;
@@ -526,6 +641,10 @@ run_screen_execution_real() {
         stop_real_activity_spinner
         REAL_STEP_STATUS[$i]="success"
         completed=$((completed + 1))
+        if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_step_complete "${REAL_STEP_IDS[$i]}"; then
+          REAL_EXEC_RESULT="failed"
+          break
+        fi
       fi
 
       REAL_COMPLETED_STEPS="$completed"
@@ -538,6 +657,9 @@ run_screen_execution_real() {
 
     if [[ "$REAL_EXEC_RESULT" == "success" ]]; then
       REAL_EXEC_ERROR=""
+      if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_complete; then
+        REAL_EXEC_RESULT="failed"
+      fi
     fi
   fi
 
@@ -572,4 +694,3 @@ run_screen_execution_real() {
 }
 
 # Salvar/recuperar cache em arquivo compartilhado entre processos
-

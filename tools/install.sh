@@ -60,6 +60,7 @@ source "$REAL_DIR/screen-update-selection.sh"
 source "$REAL_DIR/screen-confirmation-update.sh"
 source "$REAL_DIR/screen-discovery.sh"
 source "$REAL_DIR/update-detect.sh"
+source "$REAL_DIR/resume-state.sh"
 
 # Núcleo do instalador.
 source "$REAL_DIR/pipeline.sh"
@@ -95,6 +96,27 @@ while true; do
       fi
       [[ -z "$SELECTED_OVERLAY" ]] && { printf '\n[INFO] Nenhum overlay selecionado. Abortando.\n\n'; exit 0; }
       export SELECTED_OVERLAY
+
+      if ! resume_state_load; then
+        exit 1
+      fi
+      if [[ "$RESUME_STATE_RESUMABLE" == "true" ]]; then
+        if [[ "$SELECTED_OVERLAY" != "$RESUME_STATE_OVERLAY" ]]; then
+          printf '\n[AVISO] Há uma instalação pendente para o overlay "%s". Selecione esse overlay para retomá-la com segurança.\n\n' "$RESUME_STATE_OVERLAY"
+          step=2
+          continue
+        fi
+        if resume_state_prompt; then
+          RESUME_INSTALL=true
+          UPDATE_MODE=false
+          resume_state_restore_selection
+          step=4
+          continue
+        fi
+        printf '\n[INFO] Instalação pendente preservada. Execute novamente e escolha retomá-la para continuar com segurança.\n\n'
+        exit 0
+      fi
+      RESUME_INSTALL=false
 
       : > "$_TMPFILE"
       RESULT_FILE="$_TMPFILE" run_screen_discovery
