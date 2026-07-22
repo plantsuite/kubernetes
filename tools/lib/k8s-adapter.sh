@@ -835,11 +835,15 @@ real_execute_step() {
       wait_deployment_ready "mongodb" "app.kubernetes.io/name=percona-server-mongodb-operator" "percona-server-mongodb-operator" "percona-server-mongodb-operator" || return $?
       ;;
     mongodb-instance)
-      generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_DATABASE_ADMIN_PASSWORD"
-      generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_CLUSTER_ADMIN_PASSWORD"
-      generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_CLUSTER_MONITOR_PASSWORD"
-      generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_USER_ADMIN_PASSWORD"
-      generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_BACKUP_PASSWORD"
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        hydrate_secrets_for_update "mongodb-instance" || return $?
+      else
+        generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_DATABASE_ADMIN_PASSWORD"
+        generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_CLUSTER_ADMIN_PASSWORD"
+        generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_CLUSTER_MONITOR_PASSWORD"
+        generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_USER_ADMIN_PASSWORD"
+        generate_secure_password "k8s/base/mongodb/plantsuite-psmdb/.env.secret" "MONGODB_BACKUP_PASSWORD"
+      fi
       real_apply_component "k8s/base/mongodb/plantsuite-psmdb/" "mongodb/plantsuite-psmdb" || return $?
       real_set_status_detail "Aguardando CR plantsuite-psmdb..."
       wait_psmdb_ready "mongodb" "plantsuite-psmdb" "plantsuite-psmdb (CR)" || return $?
@@ -852,9 +856,13 @@ real_execute_step() {
       wait_deployment_ready "postgresql" "app.kubernetes.io/name=percona-postgresql-operator" "percona-postgresql-operator" "percona-postgresql-operator" || return $?
       ;;
     postgresql-instance)
-      generate_secure_password "k8s/base/postgresql/plantsuite-ppgc/.env-postgres.secret" "password"
-      generate_secure_password "k8s/base/postgresql/plantsuite-ppgc/.env-keycloak.secret" "password"
-      generate_secure_password "k8s/base/postgresql/plantsuite-ppgc/.env-vernemq.secret" "password"
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        hydrate_secrets_for_update "postgresql-instance" || return $?
+      else
+        generate_secure_password "k8s/base/postgresql/plantsuite-ppgc/.env-postgres.secret" "password"
+        generate_secure_password "k8s/base/postgresql/plantsuite-ppgc/.env-keycloak.secret" "password"
+        generate_secure_password "k8s/base/postgresql/plantsuite-ppgc/.env-vernemq.secret" "password"
+      fi
       real_apply_component "k8s/base/postgresql/plantsuite-ppgc/" "postgresql/plantsuite-ppgc" || return $?
       real_set_status_detail "Aguardando CR plantsuite-ppgc..."
       wait_postgrescluster_ready "postgresql" "plantsuite-ppgc" "plantsuite-ppgc (CR)" || return $?
@@ -886,7 +894,11 @@ real_execute_step() {
       wait_deployment_ready "keycloak" "app.kubernetes.io/name=keycloak-operator" "keycloak-operator" "keycloak-operator" || return $?
       ;;
     keycloak-instance)
-      update_keycloak_secrets
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        hydrate_secrets_for_update "keycloak-instance" || return $?
+      else
+        update_keycloak_secrets
+      fi
       real_apply_component "k8s/base/keycloak/plantsuite-kc/" "keycloak/plantsuite-kc" || return $?
       real_set_status_detail "Aguardando keycloak plantsuite-kc..."
       wait_keycloak_ready "keycloak" "plantsuite-kc" "plantsuite-kc" || return $?
@@ -899,7 +911,11 @@ real_execute_step() {
       wait_deployment_ready "rabbitmq" "app.kubernetes.io/name=rabbitmq-cluster-operator" "rabbitmq-cluster-operator" "rabbitmq-cluster-operator" || return $?
       ;;
     rabbitmq-instance)
-      generate_secure_password "k8s/base/rabbitmq/plantsuite-rmq/.env.secret" "password"
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        hydrate_secrets_for_update "rabbitmq-instance" || return $?
+      else
+        generate_secure_password "k8s/base/rabbitmq/plantsuite-rmq/.env.secret" "password"
+      fi
       real_apply_component "k8s/base/rabbitmq/plantsuite-rmq/" "rabbitmq/plantsuite-rmq" || return $?
       real_set_status_detail "Aguardando CR plantsuite-rmq..."
       wait_rabbitmq_ready "rabbitmq" "plantsuite-rmq" "plantsuite-rmq (CR)" || return $?
@@ -907,7 +923,11 @@ real_execute_step() {
       wait_statefulset_ready "rabbitmq" "app.kubernetes.io/name=plantsuite-rmq" "plantsuite-rmq-server" "plantsuite-rmq" || return $?
       ;;
     vernemq)
-      update_vernemq_secrets
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        hydrate_secrets_for_update "vernemq" || return $?
+      else
+        update_vernemq_secrets
+      fi
       if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
         real_apply_and_ensure_restart "k8s/base/vernemq/" "vernemq" "vernemq" "300s" || return $?
       else
@@ -917,10 +937,14 @@ real_execute_step() {
       fi
       ;;
     plantsuite-base)
-      if ! _should_skip_infra "mongodb"; then
-        update_plantsuite_env
+      if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+        hydrate_secrets_for_update "plantsuite-base" || return $?
+      else
+        if ! _should_skip_infra "mongodb"; then
+          update_plantsuite_env
+        fi
+        update_gateway_env
       fi
-      update_gateway_env
       if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
         real_apply_and_ensure_restart "k8s/base/plantsuite/" "plantsuite" "plantsuite" "300s" || return $?
       else
