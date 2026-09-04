@@ -17,7 +17,7 @@ spec:
                   - production
       containers:
         - name: production
-          image: plantsuite.azurecr.io/plantsuite-production:latest
+          image: plantsuite.azurecr.io/production-api:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

@@ -2,8 +2,10 @@ namespace: keycloak
 
 resources:
   - plantsuite-kc.yaml
+  - keycloak-cache-ispn.yaml
   - plantsuite-kc-realm.yaml
   - networkpolicy.yaml
+  - pdb.yaml
   - serviceentry.yaml
   - virtualservice.yaml
 

@@ -756,8 +756,9 @@ extract_tenant_id_from_license() {
   local tenant_id
   tenant_id=$(
     sed -n '1,/-----END CERTIFICATE-----/p' "$license_file" \
-      | openssl x509 -subject -noout 2>/dev/null \
-      | sed -n 's/.*O=\([^,]*\),.*/\1/p'
+      | openssl x509 -subject -noout -nameopt RFC2253 2>/dev/null \
+      | sed -n 's/.*O[[:space:]]*=[[:space:]]*\([^,]*\).*/\1/p' \
+      | tr -d '[:space:]'
   )
 
   if [ -z "$tenant_id" ]; then

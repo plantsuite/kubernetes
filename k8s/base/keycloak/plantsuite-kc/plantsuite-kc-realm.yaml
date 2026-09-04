@@ -1,4 +1,4 @@
-apiVersion: k8s.keycloak.org/v2alpha1
+apiVersion: k8s.keycloak.org/v2beta1
 kind: KeycloakRealmImport
 metadata:
   name: plantsuite-kc-realm
@@ -30,7 +30,7 @@ spec:
     loginWithEmailAllowed: true
     duplicateEmailsAllowed: false
     verifyEmail: false
-    rememberMe: false
+    rememberMe: true
     resetPasswordAllowed: false
     editUsernameAllowed: false
     loginTheme: plantsuite
@@ -41,6 +41,18 @@ spec:
       - en
       - es
     defaultLocale: pt-BR
+
+    # ===== Session / token hardening =====
+    ssoSessionIdleTimeout: 1800              # 30 min
+    ssoSessionMaxLifespan: 28800             # 8 hours
+    ssoSessionIdleTimeoutRememberMe: 2592000 # 30 days
+    ssoSessionMaxLifespanRememberMe: 31536000 # 365 days
+    offlineSessionIdleTimeout: 2592000       # 30 days
+    offlineSessionMaxLifespanEnabled: true
+    offlineSessionMaxLifespan: 31536000      # 365 days
+    accessTokenLifespan: 600                 # 10 min
+    refreshTokenMaxReuse: 0
+    revokeRefreshToken: false
 
     # Client Público (autenticação do usuário)
     clients:
@@ -80,6 +92,14 @@ spec:
             config:
               included.client.audience: ps-iot-portal
               id.token.claim: "true"
+              access.token.claim: "true"
+          - name: audience-ps-auth-introspection
+            protocol: openid-connect
+            protocolMapper: oidc-audience-mapper
+            consentRequired: false
+            config:
+              included.client.audience: ps-auth-introspection
+              id.token.claim: "false"
               access.token.claim: "true"
           - name: realm-roles
             protocol: openid-connect

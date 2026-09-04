@@ -1,0 +1,10 @@
+namespace: plantsuite
+
+resources:
+  - ../../../../base/plantsuite/production
+
+patches:
+  - target:
+      kind: Deployment
+      name: production
+    path: patches/deployment-ops.yaml

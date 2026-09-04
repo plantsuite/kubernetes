@@ -14,19 +14,10 @@ resources:
   - pdb.yaml
   - service.yaml
 
-secretGenerator:
-  - name: plantsuite-mes-env
+configMapGenerator:
+  - name: mes-appsettings-env
     envs:
       - appsettings.env
 
-configMapGenerator:
-  - name: mes-appsettings
-    files:
-      - appsettings.json
-
 generatorOptions:
   disableNameSuffixHash: true
-
-images:
-  - name: plantsuite.azurecr.io/plantsuite-mes
-    newTag: 2.0.0

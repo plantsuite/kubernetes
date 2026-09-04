@@ -14,5 +14,17 @@ spec:
         - namespaceSelector:
             matchLabels:
               istio.io/dataplane-mode: ambient
+    # JGroups inter-pod traffic (Keycloak cluster / Infinispan)
+    # - 7800:  JGroups data transfer
+    # - 57800: FD_SOCK2 failure detection
+    - ports:
+        - protocol: TCP
+          port: 7800
+        - protocol: TCP
+          port: 57800
+      from:
+        - podSelector:
+            matchLabels:
+              app: keycloak
   policyTypes:
     - Ingress

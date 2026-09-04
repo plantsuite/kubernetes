@@ -21,7 +21,3 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
-
-images:
-  - name: plantsuite.azurecr.io/plantsuite-production
-    newTag: 2.0.0

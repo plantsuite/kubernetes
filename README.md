@@ -2,6 +2,32 @@
 
 [Português (pt)](README.md) | [English (en)](README.en.md)
 
+## Canais de versão
+
+| Canal | Ref Git | Quem usa |
+|-------|---------|----------|
+| **Atual (v2)** | branch `main`, tag `v2` | Novas instalações e o template vigente |
+| **Legado (v1)** | branch `v1.x`, tag `v1` | Instalações já existentes; o suporte continua neste canal |
+
+Clientes que já usam o repositório público devem permanecer em v1 até planejarem a migração:
+
+```bash
+git clone https://github.com/plantsuite/kubernetes.git
+cd kubernetes
+git checkout v1.x
+# equivalente: git checkout v1
+```
+
+Novas instalações usam o canal v2 (`main`):
+
+```bash
+git clone https://github.com/plantsuite/kubernetes.git
+cd kubernetes
+./tools/install.sh
+```
+
+> **Fonte:** o template é mantido no monorepo PlantSuite em `deploy/onprem/` e publicado na raiz de `github.com/plantsuite/kubernetes`. No monorepo, execute `bash tools/install.sh` a partir de `deploy/onprem/`. Neste repositório público, execute `./tools/install.sh` na raiz.
+
 ## Visão geral
 
 Manifestos [Kustomize](https://kustomize.io/) para instalar, atualizar e remover o stack [PlantSuite](https://www.plantsuite.com) em Kubernetes, com overlays para diferentes cenários (base, demo, produção). Inclui scripts automatizados, configuração de dependências, certificados e instruções para acesso seguro aos serviços.
@@ -65,9 +91,8 @@ Além dos arquivos acima, verifique também as ferramentas abaixo instaladas e d
 - **Instalar**: `./tools/install.sh`
 	- Aplica o stack na ordem correta, espera prontidão dos serviços e preenche secrets/configs necessários.
 	- Como usar: rode a partir da raiz, escolha o overlay (base/demo/production) e confirme com `sim`.
-- **Desinstalar**: `./tools/uninstall.sh`
-	- Remove tudo na ordem inversa e aguarda limpeza segura dos recursos.
-	- Como usar: rode a partir da raiz e confirme com `sim`.
+- **Desinstalar / remover**: via `./tools/install.sh` (modo atualização)
+	- Com o stack já instalado, o instalador abre a TUI de atualização; selecione componentes para remover (`r`) ou remover tudo (`d`) e confirme.
 
 Notas:
 - Precisa de `kubectl` configurado para o contexto desejado.

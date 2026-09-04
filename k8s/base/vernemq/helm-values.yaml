@@ -9,14 +9,27 @@ image:
 statefulset:
   imagePullSecrets:
     - "plantsuite-cr"
+  # Portable probe timing (from GitOps) — longer grace for cluster join
+  livenessProbe:
+    initialDelaySeconds: 180
+    periodSeconds: 15
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 5
+  readinessProbe:
+    initialDelaySeconds: 180
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
 
 resources:
   requests:
     cpu: 500m
     memory: 1Gi
   limits:
-    cpu: 1000m
-    memory: 3Gi
+    cpu: 500m
+    memory: 1Gi
 
 podAntiAffinity: hard
 
@@ -24,7 +37,7 @@ persistentVolume:
   enabled: true
   accessModes:
     - ReadWriteOnce
-  size: 5Gi
+  size: 10Gi
 
 envFrom:
   - secretRef:

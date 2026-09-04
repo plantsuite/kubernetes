@@ -1,9 +1,13 @@
-apiVersion: k8s.keycloak.org/v2alpha1
+apiVersion: k8s.keycloak.org/v2beta1
 kind: Keycloak
 metadata:
   name: plantsuite-kc
 spec:
   instances: 3
+  cache:
+    configMapFile:
+      name: keycloak-cache-ispn
+      key: cache-ispn.xml
   resources:
     requests:
       cpu: 500m
@@ -50,7 +54,20 @@ spec:
     podTemplate:
       spec:
         containers:
-          - volumeMounts:
+          - name: keycloak
+            env:
+              - name: KC_CACHE_CONFIG_MUTATE
+                value: "true"
+              - name: KC_CACHE_STACK
+                value: jdbc-ping
+              - name: KC_CACHE_EMBEDDED_MTLS_ENABLED
+                value: "false"
+              # Stable unique JGroups/Infinispan node name per pod (KC 26 SPI)
+              - name: KC_SPI_CACHE_EMBEDDED__DEFAULT__NODE_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
+            volumeMounts:
               - mountPath: /opt/keycloak/providers
                 name: keycloak-ps-theme
         volumes:
@@ -62,8 +79,8 @@ spec:
             requiredDuringSchedulingIgnoredDuringExecution:
               - labelSelector:
                   matchExpressions:
-                    - key: app.kubernetes.io/name
+                    - key: app.kubernetes.io/instance
                       operator: In
                       values:
-                        - keycloak
+                        - plantsuite-kc
                 topologyKey: kubernetes.io/hostname

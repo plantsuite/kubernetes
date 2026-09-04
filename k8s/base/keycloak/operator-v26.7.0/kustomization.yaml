@@ -1,9 +1,11 @@
 namespace: keycloak
 
 resources:
-  - keycloak-operator.yml
-  - keycloaks.k8s.keycloak.org-v1.yml
-  - keycloakrealmimports.k8s.keycloak.org-v1.yml
+  - keycloak-operator.yaml
+  - keycloaks.k8s.keycloak.org-v1.yaml
+  - keycloakrealmimports.k8s.keycloak.org-v1.yaml
+  - keycloakoidcclients.k8s.keycloak.org-v1.yaml
+  - keycloaksamlclients.k8s.keycloak.org-v1.yaml
 
 patches:
   - target:
@@ -15,8 +17,8 @@ patches:
         path: /spec/template/spec/containers/0/resources
         value:
           requests:
-            cpu: 200m
-            memory: 384Mi
+            cpu: 500m
+            memory: 512Mi
           limits:
             cpu: 500m
-            memory: 384Mi
+            memory: 512Mi

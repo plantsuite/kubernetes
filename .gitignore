@@ -6,3 +6,10 @@
 __pycache__/
 node_modules/
 .DS_Store
+
+# Env files (this file is the public-repo root .gitignore after flatten).
+# Paths are relative to deploy/onprem/ in the monorepo and to repo root on GitHub.
+*.env
+!k8s/base/plantsuite/wd/appsettings.env
+!k8s/base/plantsuite/mes/appsettings.env
+!k8s/base/plantsuite/gateway/appsettings.env

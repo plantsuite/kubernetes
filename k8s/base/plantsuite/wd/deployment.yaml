@@ -17,7 +17,7 @@ spec:
                   - wd
       containers:
         - name: wd
-          image: plantsuite.azurecr.io/plantsuite-wd:latest
+          image: plantsuite.azurecr.io/wd-api:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -106,15 +106,18 @@ spec:
               subPath: ca.crt
               readOnly: true
         - name: wd-ui
-          image: plantsuite.azurecr.io/plantsuite-wd-ui:latest
+          image: plantsuite.azurecr.io/plantsuite-wd:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http-ui
               containerPort: 8080
               protocol: TCP
           envFrom:
+            # CM after secrets so appsettings_* (ClientId, ApiUrls) win over any bare secret keys
             - secretRef:
-                name: plantsuite-mes-env
+                name: plantsuite-env
+            - configMapRef:
+                name: wd-appsettings-env
           env:
             - name: NODE_NAME
               valueFrom:
@@ -176,11 +179,6 @@ spec:
             periodSeconds: 10
             successThreshold: 1
             failureThreshold: 30
-          volumeMounts:
-            - name: appsettings
-              readOnly: true
-              mountPath: /usr/share/nginx/html/configs/app-config.prod.json
-              subPath: appsettings-ui.json
       volumes:
         - name: appsettings
           configMap:
@@ -188,8 +186,6 @@ spec:
             items:
               - key: appsettings.json
                 path: appsettings.json
-              - key: appsettings-ui.json
-                path: appsettings-ui.json
         - name: license
           secret:
             secretName: plantsuite-license

@@ -2,6 +2,32 @@
 
 [Português (pt)](README.md) | [English (en)](README.en.md)
 
+## Version channels
+
+| Channel | Git ref | Who it is for |
+|---------|---------|----------------|
+| **Current (v2)** | branch `main`, tag `v2` | New installs and the current template |
+| **Legacy (v1)** | branch `v1.x`, tag `v1` | Existing installs; support continues on this channel |
+
+Existing public-repo clients should stay on v1 until they plan a migration:
+
+```bash
+git clone https://github.com/plantsuite/kubernetes.git
+cd kubernetes
+git checkout v1.x
+# equivalent: git checkout v1
+```
+
+New installs use the v2 channel (`main`):
+
+```bash
+git clone https://github.com/plantsuite/kubernetes.git
+cd kubernetes
+./tools/install.sh
+```
+
+> **Source:** the template is maintained in the PlantSuite monorepo at `deploy/onprem/` and published at the root of `github.com/plantsuite/kubernetes`. In the monorepo, run `bash tools/install.sh` from `deploy/onprem/`. In this public repository, run `./tools/install.sh` from the repo root.
+
 ## Overview
 
 [Kustomize](https://kustomize.io/) manifests to install, update, and remove the [PlantSuite](https://www.plantsuite.com) stack on Kubernetes, with overlays for different scenarios (base, demo, production). Includes automated scripts, dependency configuration, certificates, and instructions for secure service access.
@@ -65,9 +91,8 @@ In addition to the above files, ensure the following tools are installed and ava
 - **Install**: `./tools/install.sh`
 	- Applies the stack in the correct order, waits for service readiness, and fills in required secrets/configs.
 	- Usage: run from the root, choose the overlay (base/demo/production), and confirm with `yes`.
-- **Uninstall**: `./tools/uninstall.sh`
-	- Removes everything in reverse order and waits for safe resource cleanup.
-	- Usage: run from the root and confirm with `yes`.
+- **Uninstall / remove**: via `./tools/install.sh` (update mode)
+	- When the stack is already installed, the installer opens the update TUI; select components to remove (`r`) or remove all (`d`) and confirm.
 
 Notes:
 - You need `kubectl` configured for the desired context.

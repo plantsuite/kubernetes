@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-cache-ispn
+  namespace: keycloak
+data:
+  cache-ispn.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!--
+      Custom Infinispan cache config for PlantSuite Keycloak 26.7.0.
+      Sets owners=2 on session caches so a single pod loss/partition
+      does not drop user sessions. Backed by incident 20260622-tv-random-logouts.
+    -->
+    <infinispan
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="urn:infinispan:config:16.0 https://infinispan.org/schemas/infinispan-config-16.0.xsd"
+            xmlns="urn:infinispan:config:16.0">
+
+      <cache-container name="keycloak">
+        <!--
+          Do NOT set node-name via Quarkus EL (#{environment['HOSTNAME']}) —
+          it was left literal on every pod and broke JGroups identity / work
+          cache invalidation. Node name is set via KC SPI env
+          KC_SPI_CACHE_EMBEDDED__DEFAULT__NODE_NAME (metadata.name) on the CR,
+          matching Keycloak 26.x defaults (transport has no node-name in XML).
+        -->
+        <transport cluster="${kc.cache.cluster:keycloak}"
+                   stack="jdbc-ping"
+                   lock-timeout="60000"/>
+
+        <!-- ===== Session caches: owners=2 (was 1) ===== -->
+        <distributed-cache name="sessions" owners="2" segments="256" statistics="true">
+          <expiration interval="-1"/>
+        </distributed-cache>
+
+        <distributed-cache name="offlineSessions" owners="2" segments="256" statistics="true">
+          <expiration interval="-1"/>
+        </distributed-cache>
+
+        <distributed-cache name="clientSessions" owners="2" segments="256" statistics="true">
+          <expiration interval="-1"/>
+        </distributed-cache>
+
+        <distributed-cache name="offlineClientSessions" owners="2" segments="256" statistics="true">
+          <expiration interval="-1"/>
+        </distributed-cache>
+
+        <distributed-cache name="authenticationSessions" owners="2" segments="256" statistics="true">
+          <expiration interval="-1"/>
+        </distributed-cache>
+
+        <!-- ===== Defaults preserved ===== -->
+        <distributed-cache name="loginFailures" owners="2" segments="256" statistics="true"/>
+        <distributed-cache name="actionTokens" owners="2" segments="256" statistics="true"/>
+        <replicated-cache name="work" mode="SYNC" statistics="true"/>
+      </cache-container>
+    </infinispan>

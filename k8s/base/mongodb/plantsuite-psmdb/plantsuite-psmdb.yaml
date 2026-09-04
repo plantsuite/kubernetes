@@ -53,25 +53,66 @@ spec:
           operator: Equal
           value: mongo-rs
           effect: NoSchedule
-      # configuration: |
-      #   setParameter:
-      #     logLevel: 0
-      #   operationProfiling:
-      #     mode: off
-      #     slowOpThresholdMs: 200
-      #   systemLog:
-      #     verbosity: 0
-      #     destination: file
-      #     path: /data/db/logs/mongod.log
-      #     logAppend: true
-      #     logRotate: rename
-      #   storage:
-      #     journal:
-      #       enabled: true
+      # Portable hardening: cursorTimeoutMillis + light profiling/log defaults
+      # (from GitOps; cloud sizing/nodeSelector/sharding-on stripped)
+      configuration: |
+        setParameter:
+          logLevel: 0
+          cursorTimeoutMillis: 120000
+        operationProfiling:
+          mode: off
+          slowOpThresholdMs: 200
+        systemLog:
+          verbosity: 0
+          destination: file
+          path: /data/db/logs/mongod.log
+          logAppend: true
+          logRotate: rename
+        storage:
+          journal:
+            enabled: true
       affinity:
         antiAffinityTopologyKey: "kubernetes.io/hostname"
       podDisruptionBudget:
         maxUnavailable: 1
+      readinessProbe:
+        exec:
+          command:
+            - /opt/percona/mongodb-healthcheck
+            - k8s
+            - readiness
+            - --component
+            - mongod
+            - --ssl
+            - --sslInsecure
+            - --sslCAFile
+            - /etc/mongodb-ssl/ca.crt
+            - --sslPEMKeyFile
+            - /tmp/tls.pem
+        initialDelaySeconds: 10
+        periodSeconds: 3
+        timeoutSeconds: 10
+        successThreshold: 1
+        failureThreshold: 8
+      livenessProbe:
+        exec:
+          command:
+            - /opt/percona/mongodb-healthcheck
+            - k8s
+            - liveness
+            - --ssl
+            - --sslInsecure
+            - --sslCAFile
+            - /etc/mongodb-ssl/ca.crt
+            - --sslPEMKeyFile
+            - /tmp/tls.pem
+            - --startupDelaySeconds
+            - "14400"
+        initialDelaySeconds: 120
+        periodSeconds: 30
+        timeoutSeconds: 30
+        successThreshold: 1
+        failureThreshold: 4
       expose:
         enabled: false
         type: ClusterIP
@@ -92,21 +133,22 @@ spec:
     enabled: false
     configsvrReplSet:
       size: 3
-      # configuration: |
-      #   setParameter:
-      #     logLevel: 0
-      #   operationProfiling:
-      #     mode: off
-      #     slowOpThresholdMs: 200
-      #   systemLog:
-      #     verbosity: 0
-      #     destination: file
-      #     path: /data/db/logs/mongod.log
-      #     logAppend: true
-      #     logRotate: rename
-      #   storage:
-      #     journal:
-      #       enabled: true
+      configuration: |
+        setParameter:
+          logLevel: 0
+          cursorTimeoutMillis: 120000
+        operationProfiling:
+          mode: off
+          slowOpThresholdMs: 200
+        systemLog:
+          verbosity: 0
+          destination: file
+          path: /data/db/logs/mongod.log
+          logAppend: true
+          logRotate: rename
+        storage:
+          journal:
+            enabled: true
       affinity:
         antiAffinityTopologyKey: "kubernetes.io/hostname"
       podDisruptionBudget:
@@ -129,6 +171,11 @@ spec:
 
     mongos:
       size: 3
+      configuration: |
+        net:
+          maxIncomingConnections: 500
+        setParameter:
+          cursorTimeoutMillis: 120000
       affinity:
         antiAffinityTopologyKey: "kubernetes.io/hostname"
       podDisruptionBudget:
@@ -142,6 +189,13 @@ spec:
           memory: "1Gi"
       expose:
         type: ClusterIP
+        # Per-pod ClusterIP Services for multi-host seed lists (stable DNS).
+        # Avoids CursorNotFound when a single Service round-robins mid-cursor.
+        # DNS (ns mongodb): plantsuite-psmdb-mongos-{0,1,2}.mongodb.svc.cluster.local
+        # WARNING (operator v1.22): servicePerPod replaces the shared VIP —
+        # plantsuite-psmdb-mongos is deleted; update client URIs before/at apply.
+        # (Only effective when sharding.enabled: true)
+        servicePerPod: true
 
   backup:
     enabled: false

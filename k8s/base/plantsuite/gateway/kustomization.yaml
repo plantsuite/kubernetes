@@ -26,9 +26,3 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
-
-images:
-  - name: plantsuite.azurecr.io/plantsuite-gateway
-    newTag: pr-1014.5
-  - name: plantsuite.azurecr.io/plantsuite-gateway-ui
-    newTag: pr-1014.5
