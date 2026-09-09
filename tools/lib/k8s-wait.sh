@@ -83,7 +83,21 @@ handle_timeout() {
   done
 }
 
-# Função para aguardar deployment com spinner e tratamento de timeout interativo
+_pods_are_progressing() {
+  local ns="$1"
+  local sel="${2:-}"
+  local rows
+  if [[ -n "$sel" ]]; then
+    rows=$(kubectl get pods -n "$ns" -l "$sel" --no-headers 2>/dev/null || true)
+  else
+    rows=$(kubectl get pods -n "$ns" --no-headers 2>/dev/null || true)
+  fi
+  [[ -z "$rows" ]] && return 1
+  echo "$rows" | grep -qE 'CrashLoopBackOff|ErrImagePull|Error' && return 1
+  echo "$rows" | grep -qE 'Pending|ContainerCreating|Init:|PodInitializing|ImagePullBackOff' && return 0
+  return 1
+}
+
 wait_deployment_ready() {
   local namespace="$1"
   local label_selector="$2"
@@ -187,9 +201,10 @@ wait_statefulset_ready() {
   local label_selector="$2"
   local fallback_name="$3"
   local display_name="$4"
-  local timeout=300
+  local timeout="${5:-600}"
   local interval=3
   local elapsed=0
+  local extends=0
   local spinner=("|" "/" "-" "\\")
   local sts_name=""
 
@@ -219,6 +234,11 @@ wait_statefulset_ready() {
     done
 
     _clear_line
+    if [ "$extends" -lt 3 ] && _pods_are_progressing "$namespace" "$label_selector"; then
+      extends=$((extends + 1))
+      klog "$display_name ainda em pull/init. Aguardando mais ${timeout}s ($extends/3)."
+      continue
+    fi
     handle_timeout "$display_name"
     local action=$?
     if [ $action -eq 0 ]; then
@@ -230,7 +250,6 @@ wait_statefulset_ready() {
   done
 }
 
-# Função para aguardar o webhook do cert-manager ficar pronto (usando apenas kubectl)
 wait_cert_manager_webhook_ready() {
   local namespace="cert-manager"
   local service="cert-manager-webhook"
@@ -275,9 +294,10 @@ wait_psmdb_ready() {
   local namespace="$1"
   local name="$2"
   local display_name="$3"
-  local timeout=300
+  local timeout=600
   local interval=5
   local elapsed=0
+  local extends=0
   local spinner=("|" "/" "-" "\\")
 
   while true; do
@@ -300,6 +320,11 @@ wait_psmdb_ready() {
     done
 
     _clear_line
+    if [ "$extends" -lt 3 ] && _pods_are_progressing "$namespace"; then
+      extends=$((extends + 1))
+      klog "$display_name ainda em pull/init. Aguardando mais ${timeout}s ($extends/3)."
+      continue
+    fi
     handle_timeout "$display_name"
     local action=$?
     if [ $action -eq 0 ]; then
@@ -311,14 +336,14 @@ wait_psmdb_ready() {
   done
 }
 
-# Função para aguardar PerconaPGCluster (CR) ficar pronto
 wait_postgrescluster_ready() {
   local namespace="$1"
   local name="$2"
   local display_name="$3"
-  local timeout=300
+  local timeout=600
   local interval=5
   local elapsed=0
+  local extends=0
   local spinner=("|" "/" "-" "\\")
 
   while true; do

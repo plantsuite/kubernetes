@@ -176,6 +176,10 @@ generate_secure_password() {
     sync_redis_password_dependents "$password"
   fi
 
+  if [ "$env_file" = "k8s/base/rabbitmq/plantsuite-rmq/.env.secret" ] && [ "$key" = "password" ]; then
+    sync_rabbitmq_default_user_conf || return $?
+  fi
+
   klog "Senha gerada e atualizada em $env_file"
 }
 
@@ -370,14 +374,16 @@ update_plantsuite_env() {
     return 1
   fi
 
-  local pg_conn
-  local pg_pass_quoted="${pg_pass//\'/\'\'}"
-  if [ -n "$existing_pg_conn" ]; then
-    if echo "$existing_pg_conn" | grep -q "Password="; then
-      pg_conn=$(echo "$existing_pg_conn" | sed "s|Password=[^;']*|Password='${pg_pass_quoted}'|")
-    else
-      pg_conn="${existing_pg_conn};Password='${pg_pass_quoted}'"
-    fi
+   local pg_conn
+   local pg_pass_quoted="${pg_pass//\'/\'\'}"
+   if [ -n "$existing_pg_conn" ]; then
+     if echo "$existing_pg_conn" | grep -q "Password="; then
+       # Replace the entire quoted value. Replacing only up to the first quote
+       # leaves the previous password appended on subsequent installer runs.
+       pg_conn=$(echo "$existing_pg_conn" | sed -E "s#Password='([^']|'')*'#Password='${pg_pass_quoted}'#; t; s#Password=[^;]*#Password='${pg_pass_quoted}'#")
+     else
+       pg_conn="${existing_pg_conn};Password='${pg_pass_quoted}'"
+     fi
   else
     printf -v pg_conn "$_PG_CONN_FMT" "'${pg_pass_quoted}'"
   fi
@@ -539,6 +545,20 @@ hydrate_redis_secrets_update() {
   klog "Hidratado: $file (a partir de ${ns}/${secret})"
 }
 
+sync_rabbitmq_default_user_conf() {
+  local env_file="k8s/base/rabbitmq/plantsuite-rmq/.env.secret"
+  local conf_file="k8s/base/rabbitmq/plantsuite-rmq/default_user.conf.template"
+  local username password
+  username=$(get_env_value "$env_file" "username")
+  password=$(get_env_value "$env_file" "password")
+  if [ -z "$username" ] || [ -z "$password" ]; then
+    error "username/password do RabbitMQ ausentes em $env_file"
+    return 1
+  fi
+  printf 'default_user = %s\ndefault_pass = %s\n' "$username" "$password" > "$conf_file"
+  chmod 0600 "$conf_file"
+}
+
 hydrate_rabbitmq_secrets_update() {
   local file="k8s/base/rabbitmq/plantsuite-rmq/.env.secret"
   local ns="rabbitmq"
@@ -546,6 +566,7 @@ hydrate_rabbitmq_secrets_update() {
   _HYDRATE_CTX="rabbitmq"
   hydrate_kv "$ns" "$secret" "username" "$file" || return $?
   hydrate_kv "$ns" "$secret" "password" "$file" || return $?
+  sync_rabbitmq_default_user_conf || return $?
   klog "Hidratado: $file (a partir de ${ns}/${secret})"
 }
 
@@ -685,6 +706,7 @@ reset_rabbitmq_env_file() {
   local file="k8s/base/rabbitmq/plantsuite-rmq/.env.secret"
   [ -f "$file" ] || return 0
   set_env_value "$file" "password" ""
+  printf 'default_user = rabbitmq\ndefault_pass =\n' > "k8s/base/rabbitmq/plantsuite-rmq/default_user.conf.template"
 }
 
 reset_keycloak_env_file() {
@@ -769,7 +791,7 @@ extract_tenant_id_from_license() {
   echo "$tenant_id"
 }
 
-# TODO TEMPORÁRIO (MES): Injeta a env var MQTT.User diretamente no Kubernetes via
+# TODO TEMPORÁRIO (MES): Injeta as env vars necessárias diretamente no Kubernetes via
 # kubectl set env. Isso é necessário porque os serviços MES antigos não concatenam
 # tenantId ao usuário MQTT no código e o Configuration do .NET carrega env vars
 # após o appsettings.json, então o secret plantsuite-env (com User=system) sobrescreve.
@@ -781,21 +803,31 @@ patch_mes_mqtt_user_env() {
   local svc="$1"
 
   case "$svc" in
-    controlstations|wd|production) ;;
+    controlstations|mes|wd|production|gateway) ;;
     *) return 0 ;;
   esac
 
-  local container env_var
+  local container env_var=""
   case "$svc" in
     controlstations) container="controlstations"; env_var="MessageBus__MQTT__User" ;;
+    mes)              container="mes";              env_var="MessageBus__MQTT__User" ;;
     wd)              container="wd";              env_var="MessageBus__MQTT__User" ;;
     production)      container="production";      env_var="MessageBus__MQTT__User" ;;
+    gateway)         container="gateway";         env_var="MessageBus__MQTT__User" ;;
   esac
 
   local tenant_id
   tenant_id=$(extract_tenant_id_from_license) || return $?
 
   local mqtt_user="${tenant_id}:system"
+  local env_values=("TenantId=${tenant_id}")
+  if [ -n "$env_var" ]; then
+    env_values+=("${env_var}=${mqtt_user}")
+  fi
+  if [ "$svc" = "mes" ]; then
+    # MES is a browser UI: its entrypoint expands appsettings_* into env.js.
+    env_values+=("appsettings_TenantId=${tenant_id}" "appsettings_Mqtt__User=${mqtt_user}")
+  fi
 
   local current_replicas
   current_replicas=$(kubectl get deployment "${svc}" -n plantsuite -o jsonpath='{.spec.replicas}' 2>/dev/null)
@@ -823,11 +855,21 @@ patch_mes_mqtt_user_env() {
     waited=$((waited + 2))
   done
 
-  klog "Aplicando patch MQTT.User para $svc: $mqtt_user"
-  kubectl set env "deployment/${svc}" -n plantsuite "-c" "$container" "${env_var}=${mqtt_user}" 2>&1
+  klog "Aplicando TenantId para $svc"
+  kubectl set env "deployment/${svc}" -n plantsuite "-c" "$container" \
+    "${env_values[@]}" 2>&1
   if [ $? -ne 0 ]; then
-    error "Falha ao injetar MQTT.User para $svc"
+    error "Falha ao injetar TenantId para $svc"
     return 1
+  fi
+
+  if [ "$svc" = "wd" ]; then
+    # WD serves its UI from a sidecar that also needs TenantId in its env.js.
+    kubectl set env "deployment/${svc}" -n plantsuite -c wd-ui "appsettings_TenantId=${tenant_id}" 2>&1
+    if [ $? -ne 0 ]; then
+      error "Falha ao injetar TenantId na UI do WD"
+      return 1
+    fi
   fi
 
   klog "Restaurando $svc para $current_replicas réplicas..."
@@ -837,6 +879,6 @@ patch_mes_mqtt_user_env() {
     return 1
   fi
 
-  klog "MQTT.User injetado via kubectl para $svc: $mqtt_user"
+  klog "TenantId injetado via kubectl para $svc: $tenant_id"
   return 0
 }

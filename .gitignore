@@ -2,6 +2,7 @@
 **/charts/
 
 # Outras regras comuns
+# Installer logs stay local and are never mirrored to the public repository.
 *.log
 __pycache__/
 node_modules/
@@ -10,6 +11,8 @@ node_modules/
 # Env files (this file is the public-repo root .gitignore after flatten).
 # Paths are relative to deploy/onprem/ in the monorepo and to repo root on GitHub.
 *.env
+k8s/base/rabbitmq/plantsuite-rmq/default_user.conf
 !k8s/base/plantsuite/wd/appsettings.env
 !k8s/base/plantsuite/mes/appsettings.env
 !k8s/base/plantsuite/gateway/appsettings.env
+!k8s/base/plantsuite/portal/appsettings.env

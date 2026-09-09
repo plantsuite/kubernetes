@@ -65,7 +65,7 @@ spec:
         systemLog:
           verbosity: 0
           destination: file
-          path: /data/db/logs/mongod.log
+          path: /data/db/mongod.log
           logAppend: true
           logRotate: rename
         storage:
@@ -143,7 +143,7 @@ spec:
         systemLog:
           verbosity: 0
           destination: file
-          path: /data/db/logs/mongod.log
+          path: /data/db/mongod.log
           logAppend: true
           logRotate: rename
         storage:
@@ -289,7 +289,7 @@ spec:
         memory: 256Mi
     logrotate:
       configuration: |
-        /data/db/logs/mongod.full.log {
+        /data/db/mongod.full.log {
             daily
             maxsize 100M
             rotate 7
@@ -302,7 +302,7 @@ spec:
                 # rotate mongod.log using 'db.adminCommand({ logRotate: 1 })'
                 mongosh "mongodb://${MONGODB_USER}:${MONGODB_PASSWORD}@${MONGODB_HOST}:${MONGODB_PORT}/admin" \
                   --eval 'db.adminCommand({ logRotate: 1 })'
-                find /data/db/logs/ -type f -name 'mongod.log.*' -delete
+                find /data/db -maxdepth 1 -type f -name 'mongod.log.*' -delete
             endscript
         }
       extraConfig:

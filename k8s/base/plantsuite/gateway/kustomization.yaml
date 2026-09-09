@@ -26,3 +26,9 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
+
+images:
+  - name: plantsuite.azurecr.io/gateway-api
+    newTag: 0.2.0
+  - name: plantsuite.azurecr.io/plantsuite-gateway
+    newTag: 0.2.0

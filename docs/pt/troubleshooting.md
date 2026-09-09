@@ -44,25 +44,7 @@ Se o IP retornado for o do node (por exemplo `<IP_DO_NODE>`) em vez do do gatewa
    - Linux / macOS: `/etc/hosts`
    - Windows: `C:\Windows\System32\drivers\etc\hosts` (abrir como administrador)
 
-   Substitua `<INGRESS_IP>` pelo IP obtido no passo anterior:
-
-   ```text
-   <INGRESS_IP> gateway.plantsuite.local
-   <INGRESS_IP> gateway-ui.plantsuite.local
-   <INGRESS_IP> account.plantsuite.local
-   <INGRESS_IP> alarms.plantsuite.local
-   <INGRESS_IP> aspire-dashboard.plantsuite.local
-   <INGRESS_IP> dashboards.plantsuite.local
-   <INGRESS_IP> devices.plantsuite.local
-   <INGRESS_IP> entities.plantsuite.local
-   <INGRESS_IP> mqtt.plantsuite.local
-   <INGRESS_IP> notifications.plantsuite.local
-   <INGRESS_IP> portal.plantsuite.local
-   <INGRESS_IP> queries.plantsuite.local
-   <INGRESS_IP> spc.plantsuite.local
-   <INGRESS_IP> tenants.plantsuite.local
-   <INGRESS_IP> timeseries.plantsuite.local
-   ```</li>
+   Substitua `<INGRESS_IP>` pelo IP obtido no passo anterior. Copie **todos** os hosts da seção "Acesso aos Serviços" do [`README.md`](../../README.md) (ou "Service Access" em [`README.en.md`](../../README.en.md)) — uma lista parcial deixa serviços inacessíveis.</li>
 <li>Limpe o cache de DNS do navegador (feche e reabra o navegador, ou use `about:networking#dns` → Clear DNS cache no Firefox). No Windows, rode `ipconfig /flushdns`.</li>
 <li>Valide novamente com `getent hosts portal.plantsuite.local` — o IP retornado deve ser o do gateway.</li>
 </ol>

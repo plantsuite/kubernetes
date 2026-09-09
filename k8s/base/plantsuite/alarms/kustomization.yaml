@@ -27,4 +27,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-alarms
-    newTag: 0.14.1
+    newTag: 0.19.0

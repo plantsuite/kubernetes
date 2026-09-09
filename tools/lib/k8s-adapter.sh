@@ -708,8 +708,8 @@ real_execute_step() {
 
   if [[ "$step_id" == plantsuite-service:* ]]; then
     local svc="${step_id#plantsuite-service:}"
-    # TODO TEMPORÁRIO (MES): Patch MQTT User via kubectl set env.
-    # Os serviços MES antigos (controlstations, wd, production) não concatenam
+    # TODO TEMPORÁRIO: Patch TenantId/MQTT User via kubectl set env.
+    # Os serviços MES antigos (controlstations, mes, wd, production) não concatenam
     # tenantId ao usuário MQTT no código. O Configuration do .NET carrega env vars
     # após appsettings.json, então o secret plantsuite-env (User=system) sobrescreve.
     # Solução: apply → scale-to-0 → kubectl set env → scale-back → wait.
@@ -717,19 +717,19 @@ real_execute_step() {
     # NOTA: wd tem sidecar UI - o patch usa -c para targetar o container principal.
     # REMOVER quando os serviços migrarem para o padrão novo (concatenar tenantId no código).
     case "$svc" in
-      controlstations|wd|production)
+      controlstations|mes|wd|production|gateway)
         local svc_base="k8s/base/plantsuite/${svc}/"
         local component_path
         component_path=$(real_get_component_path "$svc_base")
         if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
           # Snapshot antes do apply para detectar se o patch já triggerou rollout
-          local mes_snapshot
-          mes_snapshot=$(real_snapshot_workload_generations "$component_path" "plantsuite")
+          local service_snapshot
+          service_snapshot=$(real_snapshot_workload_generations "$component_path" "plantsuite")
           real_apply_component "$svc_base" "plantsuite/${svc}" || return $?
           patch_mes_mqtt_user_env "$svc" || return $?
           # O patch_mes_mqtt_user_env já causa rollout via scale-to-0/set env/scale-back,
           # mas precisamos aguardar. Se o snapshot não mudou, forçamos restart extra.
-          real_ensure_restart_after_apply "$component_path" "plantsuite" "plantsuite/${svc}" "$mes_snapshot" "300s" || return $?
+          real_ensure_restart_after_apply "$component_path" "plantsuite" "plantsuite/${svc}" "$service_snapshot" "300s" || return $?
         else
           real_apply_component "$svc_base" "plantsuite/${svc}" || return $?
           patch_mes_mqtt_user_env "$svc" || return $?
@@ -916,6 +916,7 @@ real_execute_step() {
       else
         generate_secure_password "k8s/base/rabbitmq/plantsuite-rmq/.env.secret" "password"
       fi
+      sync_rabbitmq_default_user_conf || return $?
       real_apply_component "k8s/base/rabbitmq/plantsuite-rmq/" "rabbitmq/plantsuite-rmq" || return $?
       real_set_status_detail "Aguardando CR plantsuite-rmq..."
       wait_rabbitmq_ready "rabbitmq" "plantsuite-rmq" "plantsuite-rmq (CR)" || return $?
@@ -947,9 +948,9 @@ real_execute_step() {
       fi
       if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
         real_apply_and_ensure_restart "k8s/base/plantsuite/" "plantsuite" "plantsuite" "300s" || return $?
-      else
-        real_apply_component "k8s/base/plantsuite/" "plantsuite" || return $?
-        real_set_status_detail "Validando rollouts de plantsuite..."
+       else
+         real_apply_component "k8s/base/plantsuite/" "plantsuite" || return $?
+         real_set_status_detail "Validando rollouts de plantsuite..."
         real_wait_rollouts_from_path "k8s/base/plantsuite/" "plantsuite" "plantsuite" "300s" || return $?
         real_set_status_detail "Aguardando sincronização do certificado CA (ca-certificates)..."
         local _ca_elapsed=0

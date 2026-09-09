@@ -70,7 +70,10 @@ O stack PlantSuite é composto pelos seguintes componentes, organizados por cate
 | **Autenticação** | Keycloak | Gerenciamento de identidade e controle de acesso (IAM) |
 | **Observabilidade** | Aspire Dashboard | Dashboard de observabilidade distribuída para .NET |
 | **Aplicações** | PlantSuite Portal | Interface web principal do PlantSuite |
-| | PlantSuite APIs | Microserviços (Devices, Entities, Queries, Tenants, Dashboards, Notifications, Alarms, SPC, Timeseries, Workflows) |
+| | PlantSuite WD | Aplicação de pesagem (API + UI) |
+| | PlantSuite MES | Interface MES |
+| | PlantSuite Production | API de produção |
+| | PlantSuite APIs | Microserviços (Devices, Entities, Queries, Tenants, Dashboards, Notifications, Alarms, SPC, Timeseries, Workflows, Control Stations) |
 | | PlantSuite Gateway | Gateway IoT para aquisição de dados OPC-UA/MQTT. Pode ser instalado de forma standalone sem bancos de dados (usa SQLite + autenticação local). |
 
 ### Pré-requisitos
@@ -106,6 +109,10 @@ Após a instalação, os serviços são expostos via Istio Gateway com os seguin
 ### URLs HTTP/HTTPS
 - **Gateway API**: `gateway.plantsuite.local`
 - **Gateway UI**: `gateway-ui.plantsuite.local`
+- **WD API**: `wd.plantsuite.local`
+- **WD UI**: `wd-ui.plantsuite.local`
+- **MES**: `mes.plantsuite.local`
+- **Production API**: `production.plantsuite.local`
 - **Portal**: `portal.plantsuite.local`
 - **Keycloak**: `account.plantsuite.local`
 - **Aspire Dashboard**: `aspire-dashboard.plantsuite.local`
@@ -118,6 +125,9 @@ Após a instalação, os serviços são expostos via Istio Gateway com os seguin
 - **API Alarms**: `alarms.plantsuite.local`
 - **API SPC**: `spc.plantsuite.local`
 - **API Timeseries**: `timeseries.plantsuite.local`
+- **API Workflows**: `workflows.plantsuite.local`
+- **Workflows UI**: `workflows-ui.plantsuite.local`
+- **API Control Stations**: `controlstations.plantsuite.local`
 
 ### Serviços MQTT
 - **VerneMQ (MQTT)**: `mqtt.plantsuite.local` (portas 1883/8883)
@@ -145,16 +155,23 @@ Adicione as entradas no arquivo `/etc/hosts` (Linux/macOS) ou `C:\Windows\System
 <INGRESS_IP> account.plantsuite.local
 <INGRESS_IP> alarms.plantsuite.local
 <INGRESS_IP> aspire-dashboard.plantsuite.local
+<INGRESS_IP> controlstations.plantsuite.local
 <INGRESS_IP> dashboards.plantsuite.local
 <INGRESS_IP> devices.plantsuite.local
 <INGRESS_IP> entities.plantsuite.local
+<INGRESS_IP> mes.plantsuite.local
 <INGRESS_IP> mqtt.plantsuite.local
 <INGRESS_IP> notifications.plantsuite.local
 <INGRESS_IP> portal.plantsuite.local
+<INGRESS_IP> production.plantsuite.local
 <INGRESS_IP> queries.plantsuite.local
 <INGRESS_IP> spc.plantsuite.local
 <INGRESS_IP> tenants.plantsuite.local
 <INGRESS_IP> timeseries.plantsuite.local
+<INGRESS_IP> wd.plantsuite.local
+<INGRESS_IP> wd-ui.plantsuite.local
+<INGRESS_IP> workflows.plantsuite.local
+<INGRESS_IP> workflows-ui.plantsuite.local
 ```
 
 ### Confiar no Certificado SSL

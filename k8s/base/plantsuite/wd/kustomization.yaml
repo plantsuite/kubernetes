@@ -24,3 +24,9 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
+
+images:
+  - name: plantsuite.azurecr.io/wd-api
+    newTag: 0.3.0
+  - name: plantsuite.azurecr.io/plantsuite-wd
+    newTag: 0.2.0

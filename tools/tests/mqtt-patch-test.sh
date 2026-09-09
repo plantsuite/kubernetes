@@ -34,20 +34,32 @@ kubectl() {
 }
 
 : > "$calls"
-patch_mes_mqtt_user_env mes
+patch_mes_mqtt_user_env alarms
 [[ ! -s "$calls" ]]
 
 : > "$calls"
 patch_mes_mqtt_user_env gateway
-[[ ! -s "$calls" ]]
+saved=$(<"$calls")
+[[ -n "$saved" ]]
+[[ "$saved" == *"set env deployment/gateway"* ]] || [[ "$saved" == *"set env"* ]]
+[[ "$saved" == *"TenantId=tenant"* ]]
+[[ "$saved" == *"MessageBus__MQTT__User=tenant:system"* ]]
 
-for svc in controlstations wd production; do
+for svc in controlstations mes wd production; do
   : > "$calls"
   patch_mes_mqtt_user_env "$svc"
   saved=$(<"$calls")
   [[ -n "$saved" ]]
   [[ "$saved" == *"set env deployment/${svc}"* ]] || [[ "$saved" == *"set env"* ]]
   [[ "$saved" == *"MessageBus__MQTT__User=tenant:system"* ]]
+  [[ "$saved" == *"TenantId=tenant"* ]]
+  if [ "$svc" = "mes" ]; then
+    [[ "$saved" == *"appsettings_TenantId=tenant"* ]]
+    [[ "$saved" == *"appsettings_Mqtt__User=tenant:system"* ]]
+  fi
+  if [ "$svc" = "wd" ]; then
+    [[ "$saved" == *"-c wd-ui appsettings_TenantId=tenant"* ]]
+  fi
 done
 
 printf 'mqtt-patch tests passed\n'

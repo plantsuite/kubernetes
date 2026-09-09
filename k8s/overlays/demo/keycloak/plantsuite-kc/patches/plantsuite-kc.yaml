@@ -3,3 +3,5 @@
   value: 1
 - op: remove
   path: /spec/resources
+- op: remove
+  path: /spec/unsupported/podTemplate/spec/affinity

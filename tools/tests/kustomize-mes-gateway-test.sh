@@ -7,13 +7,13 @@ cd "$ONPREM"
 services=(wd mes production gateway)
 overlays=(base demo production)
 
-expect_images_for() {
+expect_image_names_for() {
   local svc="$1"
   case "$svc" in
-    wd) printf '%s\n' "plantsuite.azurecr.io/wd-api:latest" "plantsuite.azurecr.io/plantsuite-wd:latest" ;;
-    mes) printf '%s\n' "plantsuite.azurecr.io/plantsuite-mes:latest" ;;
-    production) printf '%s\n' "plantsuite.azurecr.io/production-api:latest" ;;
-    gateway) printf '%s\n' "plantsuite.azurecr.io/gateway-api:latest" "plantsuite.azurecr.io/plantsuite-gateway:latest" ;;
+    wd) printf '%s\n' "plantsuite.azurecr.io/wd-api:" "plantsuite.azurecr.io/plantsuite-wd:" ;;
+    mes) printf '%s\n' "plantsuite.azurecr.io/plantsuite-mes:" ;;
+    production) printf '%s\n' "plantsuite.azurecr.io/production-api:" ;;
+    gateway) printf '%s\n' "plantsuite.azurecr.io/gateway-api:" "plantsuite.azurecr.io/plantsuite-gateway:" ;;
   esac
 }
 
@@ -49,15 +49,16 @@ for svc in "${services[@]}"; do
     fi
 
     while IFS= read -r img; do
-      echo "$image_lines" | grep -Fq "$img" || fail "$path missing image $img"
-    done < <(expect_images_for "$svc")
+      echo "$image_lines" | grep -F "$img" | grep -Eq ':v?[0-9]|:pr-' || fail "$path missing pinned image $img"
+    done < <(expect_image_names_for "$svc")
 
-    echo "$image_lines" | grep -q ':latest' || fail "$path images are not :latest"
-
-    if echo "$image_lines" | grep -v ':latest' | grep -q .; then
-      fail "$path has non-:latest image tags"
+    if echo "$image_lines" | grep -q ':latest'; then
+      fail "$path still renders :latest image tags"
     fi
   done
 done
+
+rabbitmq_rendered=$(kubectl kustomize k8s/base/rabbitmq/plantsuite-rmq) || fail "kubectl kustomize rabbitmq"
+echo "$rabbitmq_rendered" | grep -q 'default_user.conf:' || fail "rabbitmq render missing default_user.conf"
 
 printf 'kustomize-mes-gateway tests passed\n'

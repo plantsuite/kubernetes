@@ -49,6 +49,11 @@ real_detail_cache_write() {
   [[ -n "${REAL_STATUS_DETAIL_CACHE_FILE:-}" ]] && printf '%s' "$value" > "$REAL_STATUS_DETAIL_CACHE_FILE" 2>/dev/null || true
 }
 
+real_set_status_detail() {
+  REAL_CURRENT_DETAIL="$1"
+  real_detail_cache_write "$REAL_CURRENT_DETAIL"
+}
+
 real_status_color() {
   case "$1" in
     running) echo "$C_ACCENT" ;;
@@ -304,8 +309,7 @@ render_execution_real_progress_only() {
 
 real_execution_status_hook() {
   local detail="$1"
-  REAL_CURRENT_DETAIL="$detail"
-  real_detail_cache_write "$detail"
+  real_set_status_detail "$detail"
   if [[ ${REAL_TUI_RUNNING:-0} -eq 1 ]] && [ -t 1 ]; then
     render_execution_real_progress_only
   fi
@@ -552,7 +556,7 @@ run_screen_execution_real() {
       REAL_STEP_STATUS[$i]="running"
       REAL_CURRENT_STEP_INDEX="$i"
       REAL_COMPLETED_STEPS="$completed"
-      REAL_CURRENT_DETAIL="Iniciando ${REAL_STEP_LABELS[$i]}..."
+      real_set_status_detail "Iniciando ${REAL_STEP_LABELS[$i]}..."
       draw_real_execution_screen "$completed" "$i" "$REAL_CURRENT_DETAIL"
       start_real_activity_spinner
 
@@ -590,7 +594,7 @@ run_screen_execution_real() {
               REAL_STATUS_HOOK="real_execution_status_hook"
               REAL_CURRENT_STEP_INDEX="$i"
               REAL_COMPLETED_STEPS="$completed"
-              REAL_CURRENT_DETAIL="Reexecutando ${REAL_STEP_LABELS[$i]}..."
+              real_set_status_detail "Reexecutando ${REAL_STEP_LABELS[$i]}..."
               start_real_activity_spinner
               if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_step_running "${REAL_STEP_IDS[$i]}"; then
                 stop_real_activity_spinner
@@ -648,7 +652,8 @@ run_screen_execution_real() {
       fi
 
       REAL_COMPLETED_STEPS="$completed"
-      draw_real_execution_screen "$completed" "$i" "Etapa concluída"
+      real_set_status_detail "Etapa ${REAL_STEP_LABELS[$i]} concluída"
+      draw_real_execution_screen "$completed" "$i" "$REAL_CURRENT_DETAIL"
     done
 
     stop_real_activity_spinner

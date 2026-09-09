@@ -70,12 +70,14 @@ spec:
           - "https://dashboards.plantsuite.local/*"
           - "https://devices.plantsuite.local/*"
           - "https://entities.plantsuite.local/*"
+          - "https://mes.plantsuite.local/*"
           - "https://notifications.plantsuite.local/*"
           - "https://portal.plantsuite.local/*"
           - "https://queries.plantsuite.local/*"
           - "https://spc.plantsuite.local/*"
           - "https://tenants.plantsuite.local/*"
           - "https://timeseries.plantsuite.local/*"
+          - "https://wd-ui.plantsuite.local/*"
         webOrigins:
           - "*"
         attributes:
@@ -84,6 +86,8 @@ spec:
           - basic
           - profile
           - email
+        optionalClientScopes:
+          - offline_access
         protocolMappers:
           - name: audience
             protocol: openid-connect

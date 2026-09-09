@@ -7,6 +7,8 @@ secretGenerator:
   - name: plantsuite-rmq-default-user
     envs:
       - .env.secret
+    files:
+      - default_user.conf=default_user.conf.template
 
 generatorOptions:
   disableNameSuffixHash: true

@@ -70,7 +70,10 @@ The PlantSuite stack consists of the following components, organized by category
 | **Authentication** | Keycloak | Identity and access management (IAM) |
 | **Observability** | Aspire Dashboard | Distributed observability dashboard for .NET |
 | **Applications** | PlantSuite Portal | Main PlantSuite web interface |
-| | PlantSuite APIs | Microservices (Devices, Entities, Queries, Tenants, Dashboards, Notifications, Alarms, SPC, Timeseries, Workflows) |
+| | PlantSuite WD | Weighing application (API + UI) |
+| | PlantSuite MES | MES web interface |
+| | PlantSuite Production | Production API |
+| | PlantSuite APIs | Microservices (Devices, Entities, Queries, Tenants, Dashboards, Notifications, Alarms, SPC, Timeseries, Workflows, Control Stations) |
 | | PlantSuite Gateway | IoT Gateway for OPC-UA/MQTT data acquisition. Can be installed standalone without databases (uses SQLite + local auth). |
 
 ### Prerequisites
@@ -98,6 +101,7 @@ Notes:
 - You need `kubectl` configured for the desired context.
 - If the stack is already installed, the install script enters update mode to reapply specific components.
 - In update mode, selecting at least one PlantSuite service to apply (for example `dashboards`, `timeseries-buffer`, or `timeseries-mqtt`) makes the installer include `plantsuite-base`, which refreshes the `plantsuite-env` Secret before reapplying/restarting the selected services.
+- **Recommended environment**: Linux and macOS are the recommended environments for running the installer. On Windows, use WSL2 (Windows Subsystem for Linux) for better TUI performance. Git Bash (MSYS2) is supported, but TUI rendering may be slower due to terminal emulation limits.
 
 ## Service Access
 
@@ -106,6 +110,10 @@ After installation, services are exposed via Istio Gateway with the following do
 ### HTTP/HTTPS URLs
 - **Gateway API**: `gateway.plantsuite.local`
 - **Gateway UI**: `gateway-ui.plantsuite.local`
+- **WD API**: `wd.plantsuite.local`
+- **WD UI**: `wd-ui.plantsuite.local`
+- **MES**: `mes.plantsuite.local`
+- **Production API**: `production.plantsuite.local`
 - **Portal**: `portal.plantsuite.local`
 - **Keycloak**: `account.plantsuite.local`
 - **Aspire Dashboard**: `aspire-dashboard.plantsuite.local`
@@ -118,6 +126,9 @@ After installation, services are exposed via Istio Gateway with the following do
 - **API Alarms**: `alarms.plantsuite.local`
 - **API SPC**: `spc.plantsuite.local`
 - **API Timeseries**: `timeseries.plantsuite.local`
+- **API Workflows**: `workflows.plantsuite.local`
+- **Workflows UI**: `workflows-ui.plantsuite.local`
+- **API Control Stations**: `controlstations.plantsuite.local`
 
 **MQTT Services**
 - **VerneMQ (MQTT)**: `mqtt.plantsuite.local` (ports 1883/8883)
@@ -145,16 +156,23 @@ Add entries to the `/etc/hosts` file (Linux/macOS) or `C:\Windows\System32\drive
 <INGRESS_IP> account.plantsuite.local
 <INGRESS_IP> alarms.plantsuite.local
 <INGRESS_IP> aspire-dashboard.plantsuite.local
+<INGRESS_IP> controlstations.plantsuite.local
 <INGRESS_IP> dashboards.plantsuite.local
 <INGRESS_IP> devices.plantsuite.local
 <INGRESS_IP> entities.plantsuite.local
+<INGRESS_IP> mes.plantsuite.local
 <INGRESS_IP> mqtt.plantsuite.local
 <INGRESS_IP> notifications.plantsuite.local
 <INGRESS_IP> portal.plantsuite.local
+<INGRESS_IP> production.plantsuite.local
 <INGRESS_IP> queries.plantsuite.local
 <INGRESS_IP> spc.plantsuite.local
 <INGRESS_IP> tenants.plantsuite.local
 <INGRESS_IP> timeseries.plantsuite.local
+<INGRESS_IP> wd.plantsuite.local
+<INGRESS_IP> wd-ui.plantsuite.local
+<INGRESS_IP> workflows.plantsuite.local
+<INGRESS_IP> workflows-ui.plantsuite.local
 ```
 
 ### Trust the SSL Certificate
