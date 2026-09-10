@@ -84,10 +84,15 @@ Request both from PlantSuite support at [https://support.plantsuite.com](https:/
 
 The license file should be placed at `k8s/base/plantsuite/license.crt` and the credentials (username and password) should be entered in `k8s/base/plantsuite/dockerconfig.json` and `k8s/base/vernemq/dockerconfig.json`.
 
+Alternatively, run `docker login plantsuite.azurecr.io` before starting the installer. The preflight check synchronizes the authenticated Docker config from `~/.docker/config.json` to both local files when they are empty. Use `PLANTSUITE_ACR_DOCKERCONFIG=/path/to/config.json` to select another file.
+
 In addition to the above files, ensure the following tools are installed and available in your `PATH`:
 
 - `kubectl`: required to interact with the Kubernetes cluster and set the desired context. Official installation instructions: https://kubernetes.io/docs/tasks/tools/
 - `helm`: required for using `--enable-helm` with `kubectl kustomize` — make sure you are using a compatible version, currently version 3. Official installation instructions: https://helm.sh/docs/intro/install/
+- `openssl` and `jq`: used by the preflight check to validate the license certificate and ACR credentials before any resource is applied.
+
+For a new installation, the installer blocks execution before the first apply when the license is missing, invalid, or expired, or when either Docker config lacks valid authentication for `plantsuite.azurecr.io`.
 
 ### Tools
 

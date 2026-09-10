@@ -16,6 +16,141 @@ K8S_WAIT_INTERACTIVE=0
 REAL_LAST_ERROR=""
 REAL_LAST_DETAIL=""
 REAL_STATUS_HOOK=""
+REAL_PREFLIGHT_ERROR=""
+
+real_validate_license_file() {
+  local license_file="k8s/base/plantsuite/license.crt"
+
+  if [[ ! -s "$license_file" ]]; then
+    REAL_PREFLIGHT_ERROR="certificado de licença ausente em ${license_file}"
+    return 1
+  fi
+  if ! openssl x509 -in "$license_file" -noout >/dev/null 2>&1; then
+    REAL_PREFLIGHT_ERROR="certificado de licença inválido em ${license_file}"
+    return 1
+  fi
+  if ! openssl x509 -in "$license_file" -checkend 0 -noout >/dev/null 2>&1; then
+    REAL_PREFLIGHT_ERROR="certificado de licença expirado em ${license_file}"
+    return 1
+  fi
+}
+
+real_validate_registry_dockerconfig() {
+  local dockerconfig_file="$1"
+  local registry="plantsuite.azurecr.io"
+  local auth credentials username password
+
+  if ! real_sync_registry_dockerconfig "$dockerconfig_file"; then
+    return 1
+  fi
+
+  if [[ ! -s "$dockerconfig_file" ]]; then
+    REAL_PREFLIGHT_ERROR="dockerconfig ACR ausente em ${dockerconfig_file}"
+    return 1
+  fi
+  if ! auth=$(jq -er --arg registry "$registry" '.auths[$registry].auth | select(type == "string" and length > 0)' "$dockerconfig_file" 2>/dev/null); then
+    REAL_PREFLIGHT_ERROR="dockerconfig ACR inválido ou sem auth para ${registry} em ${dockerconfig_file}"
+    return 1
+  fi
+  if ! credentials=$(printf '%s' "$auth" | openssl base64 -d -A 2>/dev/null); then
+    REAL_PREFLIGHT_ERROR="auth ACR inválido em ${dockerconfig_file}"
+    return 1
+  fi
+
+  username="${credentials%%:*}"
+  password="${credentials#*:}"
+  if [[ "$username" == "$credentials" || -z "$username" || -z "$password" ]]; then
+    REAL_PREFLIGHT_ERROR="auth ACR incompleto em ${dockerconfig_file}"
+    return 1
+  fi
+}
+
+real_dockerconfig_has_registry_auth() {
+  local dockerconfig_file="$1"
+  local registry="plantsuite.azurecr.io"
+
+  [[ -s "$dockerconfig_file" ]] &&
+    jq -e --arg registry "$registry" '.auths[$registry].auth | select(type == "string" and length > 0)' "$dockerconfig_file" >/dev/null 2>&1
+}
+
+real_validate_selected_overlay() {
+  local overlay="${SELECTED_OVERLAY:-}"
+  local overlay_dir="k8s/overlays/${overlay}"
+  local component_dir component_name output component_count=0
+  local -a failures=()
+
+  [[ -z "$overlay" || "$overlay" == "base" ]] && return 0
+  if [[ ! -d "$overlay_dir" ]]; then
+    REAL_PREFLIGHT_ERROR="overlay inexistente: ${overlay_dir}"
+    return 1
+  fi
+
+  for component_dir in "$overlay_dir"/*; do
+    [[ -d "$component_dir" ]] || continue
+    [[ -f "$component_dir/kustomization.yaml" || -f "$component_dir/kustomization.yml" || -f "$component_dir/Kustomization" ]] || continue
+
+    component_count=$((component_count + 1))
+    component_name="${component_dir#${overlay_dir}/}"
+    if ! output=$(kubectl kustomize --enable-helm "$component_dir" 2>&1 >/dev/null); then
+      output="${output//$'\n'/ }"
+      failures+=("${overlay}/${component_name}: ${output:0:300}")
+    fi
+  done
+
+  if [[ $component_count -eq 0 ]]; then
+    REAL_PREFLIGHT_ERROR="overlay sem componentes Kustomize: ${overlay_dir}"
+    return 1
+  fi
+  if [[ ${#failures[@]} -gt 0 ]]; then
+    REAL_PREFLIGHT_ERROR="falha ao renderizar overlay: ${failures[*]}"
+    return 1
+  fi
+}
+
+real_sync_registry_dockerconfig() {
+  local dockerconfig_file="$1"
+  local source_file="${PLANTSUITE_ACR_DOCKERCONFIG:-${DOCKER_CONFIG:-$HOME/.docker}/config.json}"
+  local registry="plantsuite.azurecr.io"
+  local helper helper_command credentials username password auth tmp_file
+
+  real_dockerconfig_has_registry_auth "$dockerconfig_file" && return 0
+  if [[ "$source_file" == "$dockerconfig_file" ]]; then
+    REAL_PREFLIGHT_ERROR="dockerconfig ACR sem auth para ${registry} em ${dockerconfig_file}"
+    return 1
+  fi
+
+  if real_dockerconfig_has_registry_auth "$source_file"; then
+    install -m 600 "$source_file" "$dockerconfig_file"
+    return 0
+  fi
+
+  helper=$(jq -er --arg registry "$registry" '.credHelpers[$registry] // .credsStore // empty' "$source_file" 2>/dev/null || true)
+  if [[ -z "$helper" || ! "$helper" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    REAL_PREFLIGHT_ERROR="dockerconfig ACR sem auth para ${registry} em ${dockerconfig_file}; fonte sem credential helper: ${source_file}"
+    return 1
+  fi
+  helper_command="docker-credential-${helper}"
+  if ! command -v "$helper_command" >/dev/null 2>&1; then
+    REAL_PREFLIGHT_ERROR="credential helper ACR indisponível: ${helper_command}"
+    return 1
+  fi
+  if ! credentials=$(printf '%s\n' "$registry" | "$helper_command" get 2>/dev/null); then
+    REAL_PREFLIGHT_ERROR="credential helper ACR não retornou credenciais para ${registry}"
+    return 1
+  fi
+  if ! username=$(jq -er '.Username | select(type == "string" and length > 0)' <<< "$credentials" 2>/dev/null) ||
+    ! password=$(jq -er '.Secret | select(type == "string" and length > 0)' <<< "$credentials" 2>/dev/null); then
+    REAL_PREFLIGHT_ERROR="credential helper ACR retornou credenciais inválidas para ${registry}"
+    return 1
+  fi
+
+  auth=$(printf '%s:%s' "$username" "$password" | openssl base64 -A)
+  tmp_file=$(mktemp "${dockerconfig_file}.XXXXXX")
+  printf '{"auths":{"%s":{"auth":"%s"}}}\n' "$registry" "$auth" > "$tmp_file"
+  install -m 600 "$tmp_file" "$dockerconfig_file"
+  rm -f "$tmp_file"
+  unset password credentials auth
+}
 
 real_set_status_detail() {
   local msg="$1"
@@ -54,15 +189,47 @@ get_last_warning_event() {
 }
 
 real_assert_prereqs() {
+  local -a failures=()
+
   if ! command -v kubectl >/dev/null 2>&1; then
-    REAL_LAST_ERROR="kubectl não encontrado"
-    return 1
+    failures+=("kubectl não encontrado")
   fi
   if ! command -v helm >/dev/null 2>&1; then
-    REAL_LAST_ERROR="helm não encontrado"
+    failures+=("helm não encontrado")
+  fi
+  if ! command -v openssl >/dev/null 2>&1; then
+    failures+=("openssl não encontrado")
+  fi
+  if ! command -v jq >/dev/null 2>&1; then
+    failures+=("jq não encontrado")
+  fi
+
+  if [[ "${UPDATE_MODE:-false}" != "true" ]]; then
+    if command -v openssl >/dev/null 2>&1 && ! real_validate_license_file; then
+      failures+=("$REAL_PREFLIGHT_ERROR")
+    fi
+    if command -v jq >/dev/null 2>&1 && command -v openssl >/dev/null 2>&1; then
+      if ! real_validate_registry_dockerconfig "k8s/base/plantsuite/dockerconfig.json"; then
+        failures+=("$REAL_PREFLIGHT_ERROR")
+      fi
+      if ! real_validate_registry_dockerconfig "k8s/base/vernemq/dockerconfig.json"; then
+        failures+=("$REAL_PREFLIGHT_ERROR")
+      fi
+    fi
+    if command -v kubectl >/dev/null 2>&1 && ! real_validate_selected_overlay; then
+      failures+=("$REAL_PREFLIGHT_ERROR")
+    fi
+  fi
+
+  if [[ ${#failures[@]} -gt 0 ]]; then
+    REAL_LAST_ERROR="Pré-requisitos inválidos:"
+    local failure
+    for failure in "${failures[@]}"; do
+      REAL_LAST_ERROR+=" ${failure};"
+    done
+    REAL_LAST_DETAIL="$REAL_LAST_ERROR"
     return 1
   fi
-  return 0
 }
 
 real_get_component_path() {

@@ -15,4 +15,12 @@ real_execution_status_hook "Evento k8s: novo serviço"
 [[ "$REAL_CURRENT_DETAIL" == "Evento k8s: novo serviço" ]]
 [[ "$(real_detail_cache_read)" == "Evento k8s: novo serviço" ]]
 
+detail="Pré-requisitos inválidos: certificado de licença inválido; dockerconfig ACR sem auth."
+mapfile -t detail_lines < <(wrap_result_detail "$detail" 32)
+[[ ${#detail_lines[@]} -gt 1 ]]
+[[ "${detail_lines[*]}" == "$detail" ]]
+for detail_line in "${detail_lines[@]}"; do
+  [[ ${#detail_line} -le 32 ]]
+done
+
 printf 'screen execution status tests passed\n'

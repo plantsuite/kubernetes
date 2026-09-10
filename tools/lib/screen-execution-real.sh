@@ -315,6 +315,34 @@ real_execution_status_hook() {
   fi
 }
 
+wrap_result_detail() {
+  local text="$1"
+  local width="$2"
+  local line="" word
+  local -a words
+
+  text="${text//$'\n'/ }"
+  read -r -a words <<< "$text"
+  for word in "${words[@]}"; do
+    if [[ -n "$line" && $(( ${#line} + 1 + ${#word} )) -gt $width ]]; then
+      printf '%s\n' "$line"
+      line=""
+    fi
+    while [[ ${#word} -gt $width ]]; do
+      [[ -n "$line" ]] && printf '%s\n' "$line"
+      line=""
+      printf '%s\n' "${word:0:width}"
+      word="${word:width}"
+    done
+    if [[ -z "$line" ]]; then
+      line="$word"
+    else
+      line+=" $word"
+    fi
+  done
+  [[ -n "$line" ]] && printf '%s\n' "$line"
+}
+
 # Salvar/recuperar cache em arquivo compartilhado entre processos
 
 
@@ -358,8 +386,14 @@ draw_real_result_screen() {
   ((row+=2))
 
   if [[ -n "$REAL_EXEC_ERROR" ]]; then
-    at "$row" 3 "Detalhe: $(trunc "$REAL_EXEC_ERROR" $((TUI_COLS-12)))" "$C_DIM"
-    ((row++))
+    local detail_prefix="Detalhe: "
+    local detail_width=$((TUI_COLS - 8 - ${#detail_prefix}))
+    local detail_line
+    while IFS= read -r detail_line; do
+      at "$row" 3 "${detail_prefix}${detail_line}" "$C_DIM"
+      detail_prefix="         "
+      ((row++))
+    done < <(wrap_result_detail "$REAL_EXEC_ERROR" "$detail_width")
   fi
 
   tput cup "$((TUI_LINES - 1))" 0 2>/dev/null || true

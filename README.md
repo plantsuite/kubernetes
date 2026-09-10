@@ -84,10 +84,15 @@ Solicite ambos ao suporte PlantSuite em [https://support.plantsuite.com](https:/
 
 O arquivo de licença deve ser colocado em `k8s/base/plantsuite/license.crt` e as credenciais (usuário e senha) devem ser inseridas no arquivo `k8s/base/plantsuite/dockerconfig.json` e `k8s/base/vernemq/dockerconfig.json`.
 
+Como alternativa, execute `docker login plantsuite.azurecr.io` antes de iniciar o instalador. O pré-check sincroniza o Docker config autenticado de `~/.docker/config.json` para os dois arquivos locais quando eles estiverem vazios. Use `PLANTSUITE_ACR_DOCKERCONFIG=/caminho/config.json` para indicar outro arquivo.
+
 Além dos arquivos acima, verifique também as ferramentas abaixo instaladas e disponíveis no `PATH`:
 
 - `kubectl`: necessário para interagir com o cluster Kubernetes e configurar o contexto desejado. Instruções oficiais de instalação: https://kubernetes.io/docs/tasks/tools/
 - `helm`: necessário para o uso de `--enable-helm` com `kubectl kustomize` — confirme que está usando uma versão compatível, atualmente é a versão 3. Instruções oficiais de instalação: https://helm.sh/docs/intro/install/
+- `openssl` e `jq`: usados pelo pré-check para validar o certificado de licença e as credenciais ACR antes de aplicar qualquer recurso.
+
+Em uma nova instalação, o instalador bloqueia a execução antes do primeiro apply quando a licença está ausente, inválida ou expirada, ou quando qualquer Docker config não possui uma autenticação válida para `plantsuite.azurecr.io`.
 
 ### Ferramentas
 
