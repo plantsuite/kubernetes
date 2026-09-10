@@ -95,7 +95,7 @@ spec:
             consentRequired: false
             config:
               included.client.audience: ps-iot-portal
-              id.token.claim: "true"
+              id.token.claim: "false"
               access.token.claim: "true"
           - name: audience-ps-auth-introspection
             protocol: openid-connect
@@ -105,6 +105,7 @@ spec:
               included.client.audience: ps-auth-introspection
               id.token.claim: "false"
               access.token.claim: "true"
+              introspection.token.claim: "true"
           - name: realm-roles
             protocol: openid-connect
             protocolMapper: oidc-usermodel-realm-role-mapper
@@ -121,13 +122,14 @@ spec:
             protocolMapper: oidc-usermodel-client-role-mapper
             consentRequired: false
             config:
-              "clientId": "ps-iot-portal"
+              "usermodel.clientRoleMapping.clientId": "ps-iot-portal"
               "claim.name": "resource_access.ps-iot-portal.roles"
               "jsonType.label": "String"
               "multivalued": "true"
               "userinfo.token.claim": "true"
               "id.token.claim": "false"
               "access.token.claim": "false"
+              "introspection.token.claim": "true"
 
       # Client Confidencial (introspection)
       - clientId: ps-auth-introspection
