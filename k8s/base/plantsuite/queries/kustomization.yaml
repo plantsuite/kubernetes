@@ -27,4 +27,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-queries
-    newTag: 0.44.0
+    newTag: 0.45.1
