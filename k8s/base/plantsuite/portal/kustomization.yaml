@@ -24,4 +24,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-iot-portal
-    newTag: 0.75.1
+    newTag: 0.77.0
