@@ -64,4 +64,64 @@ update_gateway_env
 set -o pipefail
 [[ "$(get_env_value "$gw_env" "Instance__Id")" == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" ]]
 
+cat > "$gw_env" <<'EOF'
+Instance__Id=
+Instance__Name=
+LocalAuth__Username=
+LocalAuth__Password=
+EOF
+
+kubectl() {
+  case "$*" in
+    *"Instance__Id"*) printf '%s' "$(printf '%s' 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' | base64 -w0)" ;;
+    *"Instance__Name"*) printf '%s' "$(printf '%s' 'plantsuite-gateway' | base64 -w0)" ;;
+    *"LocalAuth__Username"*) printf '%s' "$(printf '%s' 'admin' | base64 -w0)" ;;
+    *"LocalAuth__Password"*) printf '%s' "$(printf '%s' 'gateway-password' | base64 -w0)" ;;
+  esac
+}
+
+hydrate_gateway_secrets_update
+[[ "$(get_env_value "$gw_env" "Instance__Id")" == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" ]]
+[[ "$(get_env_value "$gw_env" "Instance__Name")" == "plantsuite-gateway" ]]
+[[ "$(get_env_value "$gw_env" "LocalAuth__Username")" == "admin" ]]
+[[ "$(get_env_value "$gw_env" "LocalAuth__Password")" == "gateway-password" ]]
+
+cat > "$gw_env" <<'EOF'
+Instance__Id=
+Instance__Name=
+LocalAuth__Username=
+LocalAuth__Password=
+EOF
+
+kubectl() {
+  case "$*" in
+    *"Instance__Name"*) printf '%s' "$(printf '%s' 'plantsuite-gateway' | base64 -w0)" ;;
+    *"LocalAuth__Username"*) printf '%s' "$(printf '%s' 'admin' | base64 -w0)" ;;
+  esac
+}
+
+UPDATE_MODE=true
+hydrate_gateway_secrets_update
+[[ "$(get_env_value "$gw_env" "Instance__Id")" =~ ^[0-9a-fA-F-]{36}$ ]]
+[[ "$(get_env_value "$gw_env" "Instance__Name")" == "plantsuite-gateway" ]]
+[[ "$(get_env_value "$gw_env" "LocalAuth__Username")" == "admin" ]]
+[[ -n "$(get_env_value "$gw_env" "LocalAuth__Password")" ]]
+
+cat > "$gw_env" <<'EOF'
+Instance__Id=
+Instance__Name=
+LocalAuth__Username=
+LocalAuth__Password=
+EOF
+
+kubectl() {
+  return 0
+}
+
+hydrate_gateway_secrets_update
+[[ "$(get_env_value "$gw_env" "Instance__Id")" =~ ^[0-9a-fA-F-]{36}$ ]]
+[[ "$(get_env_value "$gw_env" "Instance__Name")" == "plantsuite-gateway" ]]
+[[ "$(get_env_value "$gw_env" "LocalAuth__Username")" == "admin" ]]
+[[ -n "$(get_env_value "$gw_env" "LocalAuth__Password")" ]]
+
 printf 'gateway-env tests passed\n'

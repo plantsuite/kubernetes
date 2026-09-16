@@ -605,18 +605,38 @@ hydrate_gateway_secrets_update() {
   local gw_env_file="k8s/base/plantsuite/gateway/appsettings.env"
   local ns="plantsuite"
   local secret="plantsuite-gateway-env"
-  local pass_val
+  local key value
 
-  if ! secret_data_exists "$ns" "$secret" "LocalAuth__Password"; then
-    error "Hidratacao gateway bloqueada: chave LocalAuth__Password ausente em ${ns}/${secret} (RBAC, Secret ou valor)."
-    return 1
-  fi
-  pass_val=$(get_k8s_secret_value "$ns" "$secret" "LocalAuth__Password")
-  if [ -z "$pass_val" ]; then
-    error "Hidratacao gateway bloqueada: LocalAuth__Password vazio em ${ns}/${secret}."
-    return 1
-  fi
-  set_env_value "$gw_env_file" "LocalAuth__Password" "$pass_val"
+  for key in Instance__Id Instance__Name LocalAuth__Username LocalAuth__Password; do
+    value=""
+    if secret_data_exists "$ns" "$secret" "$key"; then
+      value=$(get_k8s_secret_value "$ns" "$secret" "$key")
+    fi
+    if [ -z "$value" ]; then
+      case "$key" in
+        Instance__Id)
+          value=$(cat /proc/sys/kernel/random/uuid)
+          [ -n "$value" ] || { error "Não foi possível gerar UUID para Instance__Id do Gateway."; return 1; }
+          ;;
+        Instance__Name)
+          value=$(get_env_value "$gw_env_file" "$key")
+          [ -n "$value" ] || value="plantsuite-gateway"
+          ;;
+        LocalAuth__Username)
+          value=$(get_env_value "$gw_env_file" "$key")
+          [ -n "$value" ] || value="admin"
+          ;;
+        LocalAuth__Password)
+          set_env_value "$gw_env_file" "$key" "" || return $?
+          generate_secure_password "$gw_env_file" "$key" || return $?
+          value=$(get_env_value "$gw_env_file" "$key")
+          ;;
+      esac
+      klog "Gateway: ${key} ausente no Secret; valor preenchido para a atualização."
+    fi
+    set_env_value "$gw_env_file" "$key" "$value"
+  done
+
   klog "Hidratado: $gw_env_file (a partir de ${ns}/${secret})"
 }
 
