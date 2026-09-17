@@ -24,4 +24,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-entities
-    newTag: 0.32.1
+    newTag: 0.31.0

@@ -24,4 +24,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-notifications
-    newTag: 0.23.1
+    newTag: 0.22.0

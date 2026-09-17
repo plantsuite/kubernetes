@@ -23,4 +23,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-timeseries
-    newTag: 0.36.1
+    newTag: 0.35.0
