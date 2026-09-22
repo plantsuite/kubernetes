@@ -92,4 +92,18 @@ detail=${saved_args#*--from-literal=detail=}
 detail=${detail%%$'\n'*}
 [[ ${#detail} -le 1024 ]]
 
+MOCK_KUBECTL_MODE=save
+: > "$calls"
+RESUME_STATE_COMPLETED="redis"
+RESUME_STATE_ERROR="Falha na etapa keycloak"
+RESUME_STATE_DETAIL="Timeout"
+resume_state_mark_step_complete keycloak-operator
+saved_args=$(<"$calls")
+[[ "$saved_args" == *"--from-literal=status=running"* ]]
+[[ "$saved_args" == *"--from-literal=completed=redis keycloak-operator"* ]]
+grep -qx -- '--from-literal=error=' "$calls"
+grep -qx -- '--from-literal=detail=' "$calls"
+[[ -z "$RESUME_STATE_ERROR" ]]
+[[ -z "$RESUME_STATE_DETAIL" ]]
+
 printf 'resume-state tests passed\n'

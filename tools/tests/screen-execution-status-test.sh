@@ -23,4 +23,14 @@ for detail_line in "${detail_lines[@]}"; do
   [[ ${#detail_line} -le 32 ]]
 done
 
+REAL_EXEC_RESULT="failed"
+REAL_EXEC_ERROR="Falha na etapa keycloak"
+RESUME_STATE_ERROR="Falha na etapa keycloak"
+RESUME_STATE_DETAIL="Timeout aguardando keycloak-operator"
+real_clear_step_failure
+[[ "$REAL_EXEC_RESULT" == "success" ]]
+[[ -z "$REAL_EXEC_ERROR" ]]
+[[ -z "$RESUME_STATE_ERROR" ]]
+[[ -z "$RESUME_STATE_DETAIL" ]]
+
 printf 'screen execution status tests passed\n'

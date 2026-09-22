@@ -124,6 +124,8 @@ resume_state_mark_step_complete() {
     RESUME_STATE_COMPLETED="${RESUME_STATE_COMPLETED:+$RESUME_STATE_COMPLETED }$step_id"
   fi
   RESUME_STATE_CURRENT_STEP=""
+  RESUME_STATE_ERROR=""
+  RESUME_STATE_DETAIL=""
   resume_state_save running
 }
 

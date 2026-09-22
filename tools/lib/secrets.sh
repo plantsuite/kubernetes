@@ -58,7 +58,7 @@ get_env_value() {
   if [ ! -f "$file" ]; then
     return 0
   fi
-  grep -E "^${key}=" "$file" 2>/dev/null | head -n1 | cut -d'=' -f2-
+  grep -E "^${key}=" "$file" 2>/dev/null | head -n1 | cut -d'=' -f2- | tr -d '\r' || true
 }
 
 # Lê uma chave de Secret do Kubernetes (retorna vazio em falha/ausência)
@@ -239,6 +239,25 @@ update_keycloak_secrets() {
   klog "Credenciais do banco de dados atualizadas em $env_file"
 }
 
+generate_gateway_instance_id() {
+  local instance_id=""
+
+  if [ -r /proc/sys/kernel/random/uuid ]; then
+    instance_id=$(cat /proc/sys/kernel/random/uuid)
+  elif command -v uuidgen >/dev/null 2>&1; then
+    instance_id=$(uuidgen)
+  elif command -v powershell.exe >/dev/null 2>&1; then
+    instance_id=$(powershell.exe -NoProfile -Command '[guid]::NewGuid().ToString()' | tr -d '\r\n')
+  fi
+
+  if [ -z "$instance_id" ]; then
+    error "Não foi possível gerar UUID para Instance__Id do Gateway."
+    return 1
+  fi
+
+  printf '%s' "$instance_id"
+}
+
 # Função para obter as credenciais do PostgreSQL e atualizar o .env.secret do VerneMQ
 update_vernemq_secrets() {
   local env_file="k8s/base/vernemq/.env.secret"
@@ -290,12 +309,36 @@ update_vernemq_secrets() {
   klog "Credenciais do PostgreSQL atualizadas no VerneMQ com sucesso."
 }
 
+ensure_plantsuite_env_defaults() {
+  local env_file="$1"
+  local pair key value
+
+  [ -f "$env_file" ] || return 0
+
+  for pair in \
+    "JwtOptions__Authority=https://account.plantsuite.local/realms/plantsuite" \
+    "MessageBus__RabbitMQ__Host=plantsuite-rmq.rabbitmq.svc.cluster.local" \
+    "MessageBus__MQTT__Host=plantsuite-vmq.vernemq.svc.cluster.local" \
+    "MessageBus__MQTT__User=system" \
+    "Keycloak__ApiUrl=http://plantsuite-kc-service.keycloak.svc.cluster.local:8080" \
+    "Keycloak__AdminClientId=ps-tenants-admin" \
+    "Keycloak__IntrospectionClientId=ps-auth-introspection"
+  do
+    key="${pair%%=*}"
+    value="${pair#*=}"
+    if [ -z "$(get_env_value "$env_file" "$key")" ]; then
+      set_env_value "$env_file" "$key" "$value" || return $?
+    fi
+  done
+}
+
 # Função para atualizar k8s/base/plantsuite/.env.secret com segredos de MongoDB, RabbitMQ, Keycloak e gerar senha MQTT
 update_plantsuite_env() {
   local env_file="k8s/base/plantsuite/.env.secret"
 
   klog "Atualizando .env.secret do Plantsuite com segredos do cluster..."
   sanitize_env_file "$env_file"
+  ensure_plantsuite_env_defaults "$env_file"
 
   local mongo_user="" mongo_pass=""
   local existing_mongo_conn
@@ -457,16 +500,11 @@ update_gateway_env() {
   localauth_user=$(get_env_value "$gw_env_file" "LocalAuth__Username")
 
   if [ -z "$instance_id" ]; then
-    # Tenta preservar UUID do secret existente no cluster (evita divergência com o SQLite)
     instance_id=$(kubectl get secret plantsuite-gateway-env -n plantsuite \
       -o jsonpath='{.data.Instance__Id}' 2>/dev/null | base64 -d 2>/dev/null | tr -d '[:space:]')
   fi
   if [ -z "$instance_id" ]; then
-    instance_id=$(cat /proc/sys/kernel/random/uuid)
-  fi
-  if [ -z "$instance_id" ]; then
-    error "Não foi possível gerar UUID para Instance__Id do gateway."
-    return 1
+    instance_id=$(generate_gateway_instance_id) || return $?
   fi
 
   if [ -z "$instance_name" ]; then
@@ -551,8 +589,12 @@ sync_rabbitmq_default_user_conf() {
   local username password
   username=$(get_env_value "$env_file" "username")
   password=$(get_env_value "$env_file" "password")
-  if [ -z "$username" ] || [ -z "$password" ]; then
-    error "username/password do RabbitMQ ausentes em $env_file"
+  if [ -z "$username" ]; then
+    username="rabbitmq"
+    set_env_value "$env_file" "username" "$username" || return $?
+  fi
+  if [ -z "$password" ]; then
+    error "password do RabbitMQ ausente em $env_file"
     return 1
   fi
   printf 'default_user = %s\ndefault_pass = %s\n' "$username" "$password" > "$conf_file"
@@ -607,33 +649,41 @@ hydrate_gateway_secrets_update() {
   local secret="plantsuite-gateway-env"
   local key value
 
-  for key in Instance__Id Instance__Name LocalAuth__Username LocalAuth__Password; do
+  for key in Instance__Name LocalAuth__Username Instance__Id LocalAuth__Password; do
     value=""
     if secret_data_exists "$ns" "$secret" "$key"; then
       value=$(get_k8s_secret_value "$ns" "$secret" "$key")
     fi
-    if [ -z "$value" ]; then
-      case "$key" in
-        Instance__Id)
-          value=$(cat /proc/sys/kernel/random/uuid)
-          [ -n "$value" ] || { error "Não foi possível gerar UUID para Instance__Id do Gateway."; return 1; }
-          ;;
-        Instance__Name)
+    case "$key" in
+      Instance__Name)
+        if [ -z "$value" ]; then
           value=$(get_env_value "$gw_env_file" "$key")
           [ -n "$value" ] || value="plantsuite-gateway"
-          ;;
-        LocalAuth__Username)
+          klog "Gateway: ${key} ausente no Secret; valor preenchido para a atualização."
+        fi
+        ;;
+      LocalAuth__Username)
+        if [ -z "$value" ]; then
           value=$(get_env_value "$gw_env_file" "$key")
           [ -n "$value" ] || value="admin"
-          ;;
-        LocalAuth__Password)
+          klog "Gateway: ${key} ausente no Secret; valor preenchido para a atualização."
+        fi
+        ;;
+      Instance__Id)
+        if [ -z "$value" ]; then
+          value=$(generate_gateway_instance_id) || return $?
+          klog "Gateway: ${key} ausente no Secret; valor preenchido para a atualização."
+        fi
+        ;;
+      LocalAuth__Password)
+        if [ -z "$value" ]; then
           set_env_value "$gw_env_file" "$key" "" || return $?
           generate_secure_password "$gw_env_file" "$key" || return $?
           value=$(get_env_value "$gw_env_file" "$key")
-          ;;
-      esac
-      klog "Gateway: ${key} ausente no Secret; valor preenchido para a atualização."
-    fi
+          klog "Gateway: ${key} ausente no Secret; valor preenchido para a atualização."
+        fi
+        ;;
+    esac
     set_env_value "$gw_env_file" "$key" "$value"
   done
 
@@ -759,6 +809,7 @@ reset_plantsuite_env_file() {
   set_env_value "$file" "Keycloak__AdminClientSecret" "" || status=1
   set_env_value "$file" "Keycloak__IntrospectionClientSecret" "" || status=1
   set_env_value "$file" "SMTP__Password" "" || status=1
+  ensure_plantsuite_env_defaults "$file" || status=1
   return "$status"
 }
 

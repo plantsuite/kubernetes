@@ -250,6 +250,21 @@ real_get_component_path() {
   echo "$base_path"
 }
 
+patch_gateway_rabbitmq_env() {
+  local component
+
+  for component in "${GATEWAY_INFRA_NEVER[@]:-}" "${GATEWAY_INFRA_SKIP[@]:-}"; do
+    if [[ "$component" == "rabbitmq" ]]; then
+      # The Gateway base deployment inherits plantsuite-env. Override its
+      # RabbitMQ value when the standalone flow intentionally skips RabbitMQ.
+      kubectl set env deployment/gateway -n plantsuite MessageBus__RabbitMQ__ConnectionString= || return $?
+      return 0
+    fi
+  done
+
+  kubectl set env deployment/gateway -n plantsuite MessageBus__RabbitMQ__ConnectionString- || return $?
+}
+
 real_apply_kustomize_path() {
   local component_path="$1"
   local name="$2"
@@ -423,7 +438,7 @@ real_wait_rollouts_from_path() {
       deployment.apps)
         real_set_status_detail "Aguardando deployment ${name} (${display_name})..."
         if ! kubectl -n "$namespace" rollout status "deployment/${name}" --timeout="$timeout_secs" >/dev/null 2>&1; then
-          REAL_LAST_ERROR="Timeout aguardando deployment/${name} em ${namespace} — pods não ficaram prontos em ${timeout_secs}s. Verifique: kubectl get pods -n ${namespace}"
+          REAL_LAST_ERROR="Timeout aguardando deployment/${name} em ${namespace} — pods não ficaram prontos em ${timeout_secs}. Verifique: kubectl get pods -n ${namespace}"
           local _evt
           _evt=$(get_last_warning_event "$namespace" "$name" || true)
           if [[ -n "$_evt" ]]; then
@@ -436,7 +451,7 @@ real_wait_rollouts_from_path() {
       statefulset.apps)
         real_set_status_detail "Aguardando statefulset ${name} (${display_name})..."
         if ! kubectl -n "$namespace" rollout status "statefulset/${name}" --timeout="$timeout_secs" >/dev/null 2>&1; then
-          REAL_LAST_ERROR="Timeout aguardando statefulset/${name} em ${namespace} — pods não ficaram prontos em ${timeout_secs}s. Verifique: kubectl get pods -n ${namespace}"
+          REAL_LAST_ERROR="Timeout aguardando statefulset/${name} em ${namespace} — pods não ficaram prontos em ${timeout_secs}. Verifique: kubectl get pods -n ${namespace}"
           local _evt
           _evt=$(get_last_warning_event "$namespace" "$name" || true)
           if [[ -n "$_evt" ]]; then
@@ -537,7 +552,7 @@ real_ensure_restart_after_apply() {
     fi
 
     if ! kubectl -n "$namespace" rollout status "$resource" --timeout="$timeout_secs" >/dev/null 2>&1; then
-      REAL_LAST_ERROR="Timeout aguardando rollout de ${resource} em ${namespace} — pods não ficaram prontos em ${timeout_secs}s. Verifique: kubectl get pods -n ${namespace}"
+      REAL_LAST_ERROR="Timeout aguardando rollout de ${resource} em ${namespace} — pods não ficaram prontos em ${timeout_secs}. Verifique: kubectl get pods -n ${namespace}"
       local _evt
       _evt=$(get_last_warning_event "$namespace" "$name" || true)
       if [[ -n "$_evt" ]]; then
@@ -889,16 +904,27 @@ real_execute_step() {
         local component_path
         component_path=$(real_get_component_path "$svc_base")
         if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
+          if [[ "$svc" == "gateway" ]]; then
+            # Gateway can be updated independently; hydrate its generated secrets
+            # before kustomize renders the Secret from appsettings.env.
+            hydrate_gateway_secrets_update || return $?
+          fi
           # Snapshot antes do apply para detectar se o patch já triggerou rollout
           local service_snapshot
           service_snapshot=$(real_snapshot_workload_generations "$component_path" "plantsuite")
           real_apply_component "$svc_base" "plantsuite/${svc}" || return $?
+          if [[ "$svc" == "gateway" ]]; then
+            patch_gateway_rabbitmq_env || return $?
+          fi
           patch_mes_mqtt_user_env "$svc" || return $?
           # O patch_mes_mqtt_user_env já causa rollout via scale-to-0/set env/scale-back,
           # mas precisamos aguardar. Se o snapshot não mudou, forçamos restart extra.
           real_ensure_restart_after_apply "$component_path" "plantsuite" "plantsuite/${svc}" "$service_snapshot" "300s" || return $?
         else
           real_apply_component "$svc_base" "plantsuite/${svc}" || return $?
+          if [[ "$svc" == "gateway" ]]; then
+            patch_gateway_rabbitmq_env || return $?
+          fi
           patch_mes_mqtt_user_env "$svc" || return $?
           real_wait_rollouts_from_path "$svc_base" "plantsuite" "plantsuite/${svc}" || return $?
         fi

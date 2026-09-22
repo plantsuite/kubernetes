@@ -19,6 +19,13 @@ REAL_ACTIVITY_SPINNER_PID=""
 REAL_LAST_LOG_LINE_CACHE_FILE=""
 REAL_STATUS_DETAIL_CACHE_FILE=""
 
+real_clear_step_failure() {
+  REAL_EXEC_RESULT="success"
+  REAL_EXEC_ERROR=""
+  RESUME_STATE_ERROR=""
+  RESUME_STATE_DETAIL=""
+}
+
 real_status_label() {
   case "$1" in
     pending) echo "[ ]" ;;
@@ -645,8 +652,10 @@ run_screen_execution_real() {
                 REAL_STATUS_HOOK=""
                 REAL_STEP_STATUS[$i]="success"
                 completed=$((completed + 1))
+                real_clear_step_failure
                 if [[ "${UPDATE_MODE:-false}" != "true" ]] && ! real_persist_resume_state resume_state_mark_step_complete "${REAL_STEP_IDS[$i]}"; then
                   REAL_STEP_STATUS[$i]="failed"
+                  REAL_EXEC_RESULT="failed"
                   break 2
                 fi
                 break

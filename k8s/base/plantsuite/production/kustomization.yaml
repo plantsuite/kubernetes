@@ -9,6 +9,7 @@ labels:
 
 resources:
   - deployment.yaml
+  - rbac.yaml
   - hpa.yaml
   - virtualservice.yaml
   - pdb.yaml
@@ -24,4 +25,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/production-api
-    newTag: 0.3.0
+    newTag: 0.6.0

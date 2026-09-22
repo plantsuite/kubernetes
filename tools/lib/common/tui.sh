@@ -8,7 +8,7 @@
 TUI_COLS=80
 TUI_LINES=24
 TUI_RESIZE=0
-TUI_PLAIN=0          # 1 = fallback menu numerado
+TUI_PLAIN="${TUI_PLAIN:-0}" # 1 = fallback menu numerado
 TUI_KEY_HANDLER=""  # hook opcional para atalhos específicos de uma tela
 TUI_FOOTER_HINT=""  # legenda opcional de atalhos da tela atual
 

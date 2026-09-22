@@ -40,6 +40,9 @@ localauth_pass=$(get_env_value "$gw_env" "LocalAuth__Password")
 [[ "$localauth_user" == "admin" ]]
 [[ -n "$localauth_pass" ]]
 
+generated_instance_id=$(generate_gateway_instance_id)
+[[ "$generated_instance_id" =~ ^[0-9a-fA-F-]{36}$ ]]
+
 reset_gateway_env_file
 [[ -z "$(get_env_value "$gw_env" "LocalAuth__Password")" ]]
 [[ "$(get_env_value "$gw_env" "Instance__Name")" == "plantsuite-gateway" ]]

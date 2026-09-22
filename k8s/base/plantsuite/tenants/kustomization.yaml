@@ -24,4 +24,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-tenants
-    newTag: 0.34.2
+    newTag: 0.33.0

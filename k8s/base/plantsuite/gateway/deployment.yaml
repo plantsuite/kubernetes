@@ -5,6 +5,24 @@ metadata:
 spec:
   template:
     spec:
+      initContainers:
+        - name: gateway-data-permissions
+          image: plantsuite.azurecr.io/gateway-api:0.2.0
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              chown 1654:1654 /app/data;
+              chmod 775 /app/data;
+              if [ -d /app/data/lost+found ]; then
+                chmod 755 /app/data/lost+found;
+              fi
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
       containers:
         - name: gateway
           image: plantsuite.azurecr.io/gateway-api:latest

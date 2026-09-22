@@ -42,5 +42,15 @@ update_plantsuite_env
 pg_conn=$(get_env_value k8s/base/plantsuite/.env.secret Database__Postgresql__ConnectionString)
 [[ "$pg_conn" == *"Password='new-password'"* ]]
 [[ "$pg_conn" != *old-password* ]]
+[[ "$(get_env_value k8s/base/plantsuite/.env.secret JwtOptions__Authority)" == "https://account.plantsuite.local/realms/plantsuite" ]]
+[[ "$(get_env_value k8s/base/plantsuite/.env.secret Keycloak__ApiUrl)" == "http://plantsuite-kc-service.keycloak.svc.cluster.local:8080" ]]
+[[ "$(get_env_value k8s/base/plantsuite/.env.secret MessageBus__MQTT__Host)" == "plantsuite-vmq.vernemq.svc.cluster.local" ]]
+[[ "$(get_env_value k8s/base/plantsuite/.env.secret MessageBus__MQTT__User)" == "system" ]]
+[[ "$(get_env_value k8s/base/plantsuite/.env.secret MessageBus__RabbitMQ__Host)" == "plantsuite-rmq.rabbitmq.svc.cluster.local" ]]
+[[ "$(get_env_value k8s/base/plantsuite/.env.secret Keycloak__AdminClientId)" == "ps-tenants-admin" ]]
+[[ "$(get_env_value k8s/base/plantsuite/.env.secret Keycloak__IntrospectionClientId)" == "ps-auth-introspection" ]]
+
+printf 'JwtOptions__Authority=https://custom.example/realms/plantsuite\r\n' > crlf.env
+[[ "$(get_env_value crlf.env JwtOptions__Authority)" == "https://custom.example/realms/plantsuite" ]]
 
 printf 'postgresql-password-patch tests passed\n'
