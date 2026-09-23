@@ -612,6 +612,10 @@ real_apply_plantsuite_service() {
     fi
     if [[ -n "$_instance_id" ]]; then
       sed -i "s/^Instance__Id=.*/Instance__Id=$_instance_id/" "$_gw_env"
+      inject_workflows_gateway_identity || {
+        REAL_LAST_ERROR="Falha ao injetar Gateway:InstanceId no workflows."
+        return 1
+      }
     fi
     if [[ -z "$_instance_name" ]]; then
       REAL_LAST_ERROR="Instance__Name não configurado em $_gw_env."

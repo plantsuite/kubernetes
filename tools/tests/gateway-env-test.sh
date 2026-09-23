@@ -10,7 +10,18 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/secrets.sh"
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
 cd "$tmpdir"
-mkdir -p k8s/base/plantsuite/gateway
+mkdir -p k8s/base/plantsuite/gateway k8s/base/plantsuite/workflows
+
+wf_appsettings="k8s/base/plantsuite/workflows/appsettings.json"
+cat > "$wf_appsettings" <<'EOF'
+{
+    "ServiceName": "plantsuite-workflows",
+    "Gateway": {
+        "ServiceName": "plantsuite-iot-gateway",
+        "InstanceId": ""
+    }
+}
+EOF
 
 gw_env="k8s/base/plantsuite/gateway/appsettings.env"
 cat > "$gw_env" <<'EOF'
@@ -39,6 +50,8 @@ localauth_pass=$(get_env_value "$gw_env" "LocalAuth__Password")
 [[ "$instance_name" == "plantsuite-gateway" ]]
 [[ "$localauth_user" == "admin" ]]
 [[ -n "$localauth_pass" ]]
+[[ "$(jq -r '.Gateway.ServiceName' "$wf_appsettings")" == "plantsuite-iot-gateway" ]]
+[[ "$(jq -r '.Gateway.InstanceId' "$wf_appsettings")" == "$instance_id" ]]
 
 generated_instance_id=$(generate_gateway_instance_id)
 [[ "$generated_instance_id" =~ ^[0-9a-fA-F-]{36}$ ]]
@@ -66,6 +79,8 @@ set +o pipefail
 update_gateway_env
 set -o pipefail
 [[ "$(get_env_value "$gw_env" "Instance__Id")" == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" ]]
+[[ "$(jq -r '.Gateway.InstanceId' "$wf_appsettings")" == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" ]]
+[[ "$(jq -r '.Gateway.ServiceName' "$wf_appsettings")" == "plantsuite-iot-gateway" ]]
 
 cat > "$gw_env" <<'EOF'
 Instance__Id=
@@ -88,6 +103,8 @@ hydrate_gateway_secrets_update
 [[ "$(get_env_value "$gw_env" "Instance__Name")" == "plantsuite-gateway" ]]
 [[ "$(get_env_value "$gw_env" "LocalAuth__Username")" == "admin" ]]
 [[ "$(get_env_value "$gw_env" "LocalAuth__Password")" == "gateway-password" ]]
+[[ "$(jq -r '.Gateway.InstanceId' "$wf_appsettings")" == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" ]]
+[[ "$(jq -r '.Gateway.ServiceName' "$wf_appsettings")" == "plantsuite-iot-gateway" ]]
 
 cat > "$gw_env" <<'EOF'
 Instance__Id=

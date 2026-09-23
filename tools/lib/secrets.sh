@@ -488,6 +488,41 @@ update_plantsuite_env() {
   klog "Arquivo atualizado: $env_file"
 }
 
+# Copy the persisted gateway Instance__Id into workflows so Invoke uses the
+# same GUID (do not generate a second gateway id).
+inject_workflows_gateway_identity() {
+  local gw_env_file="k8s/base/plantsuite/gateway/appsettings.env"
+  local wf_appsettings="k8s/base/plantsuite/workflows/appsettings.json"
+  local service_name="plantsuite-iot-gateway"
+  local instance_id tmp
+
+  [ -f "$wf_appsettings" ] || return 0
+
+  instance_id=$(get_env_value "$gw_env_file" "Instance__Id")
+  instance_id=$(printf '%s' "$instance_id" | tr -d '[:space:]')
+  if [ -z "$instance_id" ]; then
+    return 0
+  fi
+
+  if ! command -v jq >/dev/null 2>&1; then
+    error "jq é necessário para injetar Gateway:InstanceId no workflows."
+    return 1
+  fi
+
+  tmp=$(mktemp "${wf_appsettings}.tmp.XXXXXX") || return 1
+  if ! jq --indent 4 \
+      --arg sn "$service_name" \
+      --arg iid "$instance_id" \
+      '.Gateway.ServiceName = $sn | .Gateway.InstanceId = $iid' \
+      "$wf_appsettings" > "$tmp"; then
+    rm -f "$tmp"
+    error "Falha ao injetar Gateway:InstanceId em $wf_appsettings"
+    return 1
+  fi
+  mv "$tmp" "$wf_appsettings"
+  klog "Workflows Gateway:ServiceName=${service_name} Gateway:InstanceId=${instance_id}"
+}
+
 update_gateway_env() {
   local gw_env_file="k8s/base/plantsuite/gateway/appsettings.env"
 
@@ -521,6 +556,7 @@ update_gateway_env() {
   set_env_value "$gw_env_file" "LocalAuth__Username" "$localauth_user"
 
   klog "Arquivo atualizado: $gw_env_file"
+  inject_workflows_gateway_identity || return $?
 }
 
 secret_data_exists() {
@@ -688,6 +724,7 @@ hydrate_gateway_secrets_update() {
   done
 
   klog "Hidratado: $gw_env_file (a partir de ${ns}/${secret})"
+  inject_workflows_gateway_identity || return $?
 }
 
 hydrate_plantsuite_env_file_update() {
