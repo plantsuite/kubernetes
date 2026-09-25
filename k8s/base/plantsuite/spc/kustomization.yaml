@@ -27,4 +27,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-spc
-    newTag: 0.58.0
+    newTag: 0.56.0

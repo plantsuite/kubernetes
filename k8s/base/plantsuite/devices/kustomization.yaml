@@ -24,4 +24,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-devices
-    newTag: 0.24.0
+    newTag: 0.26.0
