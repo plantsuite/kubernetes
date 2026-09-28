@@ -126,7 +126,7 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - name: http-ui
-              containerPort: 80
+              containerPort: 8081
               protocol: TCP
           envFrom:
             - secretRef:
