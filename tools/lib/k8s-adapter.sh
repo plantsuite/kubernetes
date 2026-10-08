@@ -887,6 +887,48 @@ real_delete_plantsuite_all() {
   return 0
 }
 
+real_assert_istio_ingress_certificate_issuers() {
+  local certs_output cert_name issuer_kind issuer_name issuer_kind_lc
+
+  real_set_status_detail "Validando emissores dos Certificates em istio-ingress..."
+
+  if ! certs_output=$(kubectl get certificate -n istio-ingress \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{.spec.issuerRef.kind}{"|"}{.spec.issuerRef.name}{"\n"}{end}' 2>/dev/null); then
+    REAL_LAST_ERROR="Não foi possível listar Certificates em istio-ingress"
+    REAL_LAST_DETAIL="$REAL_LAST_ERROR"
+    return 1
+  fi
+
+  if [[ -z "$certs_output" ]]; then
+    return 0
+  fi
+
+  while IFS='|' read -r cert_name issuer_kind issuer_name; do
+    if [[ -z "${cert_name:-}" ]]; then
+      continue
+    fi
+    issuer_kind="${issuer_kind:-Issuer}"
+    issuer_kind_lc=$(printf '%s' "$issuer_kind" | tr '[:upper:]' '[:lower:]')
+
+    case "$issuer_kind_lc" in
+      clusterissuer)
+        if kubectl get clusterissuer "$issuer_name" >/dev/null 2>&1; then
+          continue
+        fi
+        ;;
+      issuer)
+        if kubectl get issuer "$issuer_name" -n istio-ingress >/dev/null 2>&1; then
+          continue
+        fi
+        ;;
+    esac
+
+    REAL_LAST_ERROR="Certificate ${cert_name} pede ${issuer_kind}/${issuer_name}; emissor não encontrado"
+    REAL_LAST_DETAIL="$REAL_LAST_ERROR"
+    return 1
+  done <<< "$certs_output"
+}
+
 real_execute_step() {
   local step_id="$1"
   REAL_LAST_ERROR=""
@@ -907,6 +949,11 @@ real_execute_step() {
         local svc_base="k8s/base/plantsuite/${svc}/"
         local component_path
         component_path=$(real_get_component_path "$svc_base")
+        if [[ "$svc" == "mes" ]]; then
+          ensure_mes_appsettings_defaults || return $?
+        elif [[ "$svc" == "wd" ]]; then
+          ensure_wd_appsettings_defaults || return $?
+        fi
         if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
           if [[ "$svc" == "gateway" ]]; then
             # Gateway can be updated independently; hydrate its generated secrets
@@ -1001,8 +1048,10 @@ real_execute_step() {
     istio-ingress)
       if [[ "${UPDATE_MODE:-false}" == "true" ]]; then
         real_apply_and_ensure_restart "k8s/base/istio-ingress/" "istio-ingress" "istio-ingress" "300s" || return $?
+        real_assert_istio_ingress_certificate_issuers || return $?
       else
         real_apply_component "k8s/base/istio-ingress/" "istio-ingress" || return $?
+        real_assert_istio_ingress_certificate_issuers || return $?
         real_set_status_detail "Aguardando gateway do istio-ingress..."
         wait_deployment_ready "istio-ingress" "app=gateway" "gateway" "istio-ingress gateway" || return $?
         real_set_status_detail "Aguardando emissão do certificado wildcard pelo cert-manager..."

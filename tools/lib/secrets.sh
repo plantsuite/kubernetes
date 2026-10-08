@@ -870,6 +870,41 @@ reset_managed_secrets_files() {
   return "$status"
 }
 
+# Portal origin for MES/WD env.js (appsettings_PortalUrl). Prefer an already
+# configured value (service file, else portal appsettings_Url). Do not invent a host.
+_ONPREM_PORTAL_URL_DEFAULT="https://portal.plantsuite.local"
+
+resolve_onprem_portal_url() {
+  local env_file="${1:-}"
+  local value=""
+  if [ -n "$env_file" ]; then
+    value=$(get_env_value "$env_file" "appsettings_PortalUrl")
+  fi
+  if [ -z "$value" ]; then
+    value=$(get_env_value "k8s/base/plantsuite/portal/appsettings.env" "appsettings_Url")
+  fi
+  if [ -z "$value" ]; then
+    value="$_ONPREM_PORTAL_URL_DEFAULT"
+  fi
+  printf '%s\n' "$value"
+}
+
+ensure_mes_appsettings_defaults() {
+  local env_file="${1:-k8s/base/plantsuite/mes/appsettings.env}"
+  [ -f "$env_file" ] || return 0
+  if [ -z "$(get_env_value "$env_file" "appsettings_PortalUrl")" ]; then
+    set_env_value "$env_file" "appsettings_PortalUrl" "$(resolve_onprem_portal_url "$env_file")" || return $?
+  fi
+}
+
+ensure_wd_appsettings_defaults() {
+  local env_file="${1:-k8s/base/plantsuite/wd/appsettings.env}"
+  [ -f "$env_file" ] || return 0
+  if [ -z "$(get_env_value "$env_file" "appsettings_PortalUrl")" ]; then
+    set_env_value "$env_file" "appsettings_PortalUrl" "$(resolve_onprem_portal_url "$env_file")" || return $?
+  fi
+}
+
 # TODO TEMPORÁRIO (MES): Extrai o tenantId do certificado de licença.
 # Os serviços MES antigos (controlstations, wd, production) não concatenam
 # tenantId ao usuário MQTT no código. Esse workaround permite ao instalador
@@ -929,12 +964,20 @@ patch_mes_mqtt_user_env() {
 
   local mqtt_user="${tenant_id}:system"
   local env_values=("TenantId=${tenant_id}")
+  local portal_url=""
+  if [ "$svc" = "mes" ]; then
+    ensure_mes_appsettings_defaults || return $?
+    portal_url=$(resolve_onprem_portal_url "k8s/base/plantsuite/mes/appsettings.env")
+  elif [ "$svc" = "wd" ]; then
+    ensure_wd_appsettings_defaults || return $?
+    portal_url=$(resolve_onprem_portal_url "k8s/base/plantsuite/wd/appsettings.env")
+  fi
   if [ -n "$env_var" ]; then
     env_values+=("${env_var}=${mqtt_user}")
   fi
   if [ "$svc" = "mes" ]; then
     # MES is a browser UI: its entrypoint expands appsettings_* into env.js.
-    env_values+=("appsettings_TenantId=${tenant_id}" "appsettings_Mqtt__User=${mqtt_user}")
+    env_values+=("appsettings_TenantId=${tenant_id}" "appsettings_Mqtt__User=${mqtt_user}" "appsettings_PortalUrl=${portal_url}")
   fi
 
   local current_replicas
@@ -972,8 +1015,9 @@ patch_mes_mqtt_user_env() {
   fi
 
   if [ "$svc" = "wd" ]; then
-    # WD serves its UI from a sidecar that also needs TenantId in its env.js.
-    kubectl set env "deployment/${svc}" -n plantsuite -c wd-ui "appsettings_TenantId=${tenant_id}" 2>&1
+    # WD serves its UI from a sidecar that also needs TenantId/PortalUrl in its env.js.
+    kubectl set env "deployment/${svc}" -n plantsuite -c wd-ui \
+      "appsettings_TenantId=${tenant_id}" "appsettings_PortalUrl=${portal_url}" 2>&1
     if [ $? -ne 0 ]; then
       error "Falha ao injetar TenantId na UI do WD"
       return 1

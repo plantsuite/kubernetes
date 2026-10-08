@@ -56,9 +56,11 @@ for svc in controlstations mes wd production; do
   if [ "$svc" = "mes" ]; then
     [[ "$saved" == *"appsettings_TenantId=tenant"* ]]
     [[ "$saved" == *"appsettings_Mqtt__User=tenant:system"* ]]
+    [[ "$saved" == *"appsettings_PortalUrl=https://portal.plantsuite.local"* ]]
   fi
   if [ "$svc" = "wd" ]; then
     [[ "$saved" == *"-c wd-ui appsettings_TenantId=tenant"* ]]
+    [[ "$saved" == *"appsettings_PortalUrl=https://portal.plantsuite.local"* ]]
   fi
 done
 

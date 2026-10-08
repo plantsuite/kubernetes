@@ -38,6 +38,11 @@ for svc in "${services[@]}"; do
 
     echo "$rendered" | grep -q 'plantsuite\.local' || fail "$path missing .plantsuite.local hosts"
 
+    if [[ "$svc" == "mes" || "$svc" == "wd" ]]; then
+      echo "$rendered" | grep -q 'appsettings_PortalUrl: https://portal.plantsuite.local' \
+        || fail "$path missing appsettings_PortalUrl=https://portal.plantsuite.local"
+    fi
+
     if echo "$rendered" | grep -Eq 'mes\.dev|\.dev\.plantsuite\.com|mqttdev\.plantsuite\.com'; then
       fail "$path contains legacy dev hosts"
     fi
