@@ -24,4 +24,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-dashboards
-    newTag: 0.60.0
+    newTag: 0.61.1
