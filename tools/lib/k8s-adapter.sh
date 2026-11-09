@@ -114,6 +114,16 @@ real_sync_registry_dockerconfig() {
   local helper helper_command credentials username password auth tmp_file
 
   real_dockerconfig_has_registry_auth "$dockerconfig_file" && return 0
+  if username=$(jq -er --arg registry "$registry" '.auths[$registry].username | select(type == "string" and length > 0)' "$dockerconfig_file" 2>/dev/null) &&
+     password=$(jq -er --arg registry "$registry" '.auths[$registry].password | select(type == "string" and length > 0)' "$dockerconfig_file" 2>/dev/null); then
+    auth=$(printf '%s:%s' "$username" "$password" | openssl base64 -A)
+    tmp_file=$(mktemp "${dockerconfig_file}.XXXXXX")
+    jq --arg registry "$registry" --arg auth "$auth" '.auths[$registry].auth = $auth' "$dockerconfig_file" > "$tmp_file"
+    install -m 600 "$tmp_file" "$dockerconfig_file"
+    rm -f "$tmp_file"
+    unset password auth
+    return 0
+  fi
   if [[ "$source_file" == "$dockerconfig_file" ]]; then
     REAL_PREFLIGHT_ERROR="dockerconfig ACR sem auth para ${registry} em ${dockerconfig_file}"
     return 1

@@ -40,6 +40,8 @@ printf '%s\n' \
   'printf "apiVersion: v1\nkind: ConfigMap\n"' \
   > "$tmpdir/bin/kubectl"
 chmod +x "$tmpdir/bin/kubectl"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$tmpdir/bin/helm"
+chmod +x "$tmpdir/bin/helm"
 
 printf '{"credsStore":"test-store"}\n' > "$HOME/.docker/config.json"
 printf '{"auths":{"plantsuite.azurecr.io":{"auth":""}}}\n' > k8s/base/plantsuite/dockerconfig.json
@@ -50,6 +52,17 @@ printf 'resources: []\n' > k8s/overlays/demo/valid/kustomization.yaml
 real_assert_prereqs
 real_dockerconfig_has_registry_auth k8s/base/plantsuite/dockerconfig.json
 real_dockerconfig_has_registry_auth k8s/base/vernemq/dockerconfig.json
+
+export PLANTSUITE_ACR_DOCKERCONFIG="$tmpdir/missing-dockerconfig.json"
+printf '%s\n' '{"auths":{"plantsuite.azurecr.io":{"username":"local-user","password":"local-password"},"other.example":{"auth":"existing"}}}' > k8s/base/plantsuite/dockerconfig.json
+cp k8s/base/plantsuite/dockerconfig.json k8s/base/vernemq/dockerconfig.json
+real_assert_prereqs
+for config in k8s/base/plantsuite/dockerconfig.json k8s/base/vernemq/dockerconfig.json; do
+  auth=$(jq -r '.auths["plantsuite.azurecr.io"].auth' "$config")
+  [[ "$(printf '%s' "$auth" | openssl base64 -d -A)" == 'local-user:local-password' ]]
+  [[ "$(jq -r '.auths["other.example"].auth' "$config")" == 'existing' ]]
+done
+unset PLANTSUITE_ACR_DOCKERCONFIG
 
 mkdir -p k8s/overlays/demo/broken
 printf 'resources: []\n' > k8s/overlays/demo/broken/kustomization.yaml
