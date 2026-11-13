@@ -24,4 +24,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-mes
-    newTag: 3.1.0
+    newTag: 3.1.2

@@ -23,7 +23,7 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/plantsuite-workflows
-    newTag: 3.1.0
+    newTag: 3.1.1
   - name: plantsuite.azurecr.io/plantsuite-workflows-studio
     newTag: 3.0.1
 
