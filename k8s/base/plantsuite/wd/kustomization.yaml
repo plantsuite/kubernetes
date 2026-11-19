@@ -27,6 +27,6 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/wd-api
-    newTag: 3.3.0
+    newTag: 3.4.0
   - name: plantsuite.azurecr.io/plantsuite-wd
     newTag: 3.2.0

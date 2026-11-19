@@ -25,4 +25,4 @@ generatorOptions:
 
 images:
   - name: plantsuite.azurecr.io/production-api
-    newTag: 3.3.0
+    newTag: 3.4.0
